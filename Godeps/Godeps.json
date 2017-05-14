@@ -1,0 +1,16 @@
+{
+	"ImportPath": "github.com/rjchee/spongemock",
+	"GoVersion": "go1.6",
+	"GodepVersion": "v79",
+	"Deps": [
+		{
+			"ImportPath": "github.com/nlopes/slack",
+			"Comment": "v0.0.1-210-g72d15a0",
+			"Rev": "72d15a0fc0b773a59c00f78b9e7d97eeb8c4281f"
+		},
+		{
+			"ImportPath": "golang.org/x/net/websocket",
+			"Rev": "d9558e5c97f85372afee28cf2b6059d7d3818919"
+		}
+	]
+}

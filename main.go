@@ -66,7 +66,8 @@ func getLastSlackMessage(c string) (string, error) {
 	}
 
 	for _, msg := range h.Messages {
-		if msg.Text == "" {
+		log.Printf("message: %v\n", msg)
+		if msg.SubType != "" || msg.Text == "" {
 			continue
 		}
 		return msg.Text, nil
@@ -121,7 +122,8 @@ func main() {
 		log.Fatal("$APP_URL must be set!")
 	}
 
-	http.Handle("/static/", http.FileServer(http.Dir("/static/")))
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
 	http.HandleFunc("/slack", handleSlack)
 
 	log.Fatal(http.ListenAndServe(":"+port, nil))

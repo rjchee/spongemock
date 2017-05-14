@@ -6,18 +6,24 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
 	"github.com/nlopes/slack"
 )
 
+const (
+	iconPath = "/static/icon.png"
+	memePath = "/static/spongemock.jpg"
+)
+
 var (
 	atk     = os.Getenv("AUTHENTICATION_TOKEN")
 	vtk     = os.Getenv("VERIFICATION_TOKEN")
 	appURL  = os.Getenv("APP_URL")
-	iconURL = appURL + "/static/icon.png"
-	memeURL = appURL + "/static/spongemock.jpg"
+	iconURL string
+	memeURL string
 	api     = slack.New(atk)
 )
 
@@ -66,7 +72,6 @@ func getLastSlackMessage(c string) (string, error) {
 	}
 
 	for _, msg := range h.Messages {
-		log.Printf("message: %v\n", msg)
 		if msg.SubType != "" || msg.Text == "" {
 			continue
 		}
@@ -121,6 +126,14 @@ func main() {
 	if appURL == "" {
 		log.Fatal("$APP_URL must be set!")
 	}
+	u, err := url.Parse(appURL)
+	if err != nil {
+		log.Fatal("invalid $APP_URL %s", appURL)
+	}
+	icon, _ := url.Parse(iconPath)
+	iconURL = u.ResolveReference(icon).String()
+	meme, _ := url.Parse(memePath)
+	memeURL = u.ResolveReference(meme).String()
 
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))

@@ -26,7 +26,7 @@ func transformText(m string) string {
 	for i := 0; i < len(m); i++ {
 		ch := m[i : i+1]
 		if rand.Int()%2 == 0 {
-			ch = strings.ToLower(ch)
+			ch = strings.ToUpper(ch)
 		}
 		buffer.WriteString(ch)
 	}
@@ -121,7 +121,7 @@ func main() {
 		log.Fatal("$APP_URL must be set!")
 	}
 
-	http.Handle("/static", http.FileServer(http.Dir("/static")))
+	http.Handle("/static/", http.FileServer(http.Dir("/static/")))
 	http.HandleFunc("/slack", handleSlack)
 
 	log.Fatal(http.ListenAndServe(":"+port, nil))

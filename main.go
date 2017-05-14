@@ -111,6 +111,15 @@ func main() {
 	if port == "" {
 		log.Fatal("$PORT must be set!")
 	}
+	if atk == "" {
+		log.Fatal("$AUTHENTICATION_TOKEN must be set!")
+	}
+	if vtk == "" {
+		log.Fatal("$VERIFICATION_TOKEN must be set!")
+	}
+	if appURL == "" {
+		log.Fatal("$APP_URL must be set!")
+	}
 
 	http.Handle("/static", http.FileServer(http.Dir("/static")))
 	http.HandleFunc("/slack", handleSlack)

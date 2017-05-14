@@ -2,6 +2,9 @@
 	"ImportPath": "github.com/rjchee/spongemock",
 	"GoVersion": "go1.8",
 	"GodepVersion": "v79",
+        "Packages": [
+            "./cmd/..."
+        ],
 	"Deps": [
 		{
 			"ImportPath": "github.com/nlopes/slack",

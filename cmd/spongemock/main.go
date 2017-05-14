@@ -33,6 +33,8 @@ func transformText(m string) string {
 		ch := m[i : i+1]
 		if rand.Int()%2 == 0 {
 			ch = strings.ToUpper(ch)
+		} else {
+			ch = strings.ToLower(ch)
 		}
 		buffer.WriteString(ch)
 	}

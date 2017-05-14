@@ -17,6 +17,9 @@ import (
 const (
 	iconPath = "/static/icon.png"
 	memePath = "/static/spongemock.jpg"
+
+	username = "Spongebob"
+	fallback = "*Spongebob mocking meme*"
 )
 
 var (
@@ -28,6 +31,7 @@ var (
 	api     = slack.New(atk)
 
 	textRegexp = regexp.MustCompile("&amp;|&lt;|&gt;|.?")
+	userRegexp = regexp.MustCompile("^<@(U[0-9A-F]+)\\|.+?>$")
 )
 
 func transformText(m string) string {
@@ -74,7 +78,10 @@ func isValidSlackRequest(r *http.Request) bool {
 	return true
 }
 
-func getLastSlackMessage(c string) (string, error) {
+func getLastSlackMessage(c string, u string) (string, error) {
+	if u != "" {
+		log.Printf("searching for messages by user %s\n", u)
+	}
 	h, err := api.GetChannelHistory(c, slack.NewHistoryParameters())
 	if err != nil {
 		log.Printf("history API request error: %s", err)
@@ -82,7 +89,13 @@ func getLastSlackMessage(c string) (string, error) {
 	}
 
 	for _, msg := range h.Messages {
+		log.Printf("message: %v\n", msg)
+		// don't support message subtypes for now
 		if msg.SubType != "" || msg.Text == "" {
+			continue
+		}
+		// if a user is supplied, search for the last message by a user
+		if u != "" && msg.User != u {
 			continue
 		}
 		return msg.Text, nil
@@ -103,16 +116,38 @@ func handleSlack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	channel := r.PostFormValue("channel_id")
-	lastMessage, err := getLastSlackMessage(channel)
-	if err != nil {
+	reqText := r.PostFormValue("text")
+	log.Printf("command: %s %s\n", r.PostFormValue("command"), reqText)
+	var message string
+	var err error
+	if reqText == "" {
+		message, err = getLastSlackMessage(channel, "")
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+	} else if userRegexp.MatchString(reqText) {
+		message, err = getLastSlackMessage(channel, userRegexp.FindStringSubmatch(reqText)[1])
+		if err != nil {
+			status = http.StatusInternalServerError
+			return
+		}
+	} else {
+		status = http.StatusBadRequest
+		log.Println(len(reqText), reqText)
+		return
+	}
+
+	mockedText := transformText(message)
+	if mockedText == "" {
 		status = http.StatusInternalServerError
 		return
 	}
 	params := slack.NewPostMessageParameters()
-	params.Username = "Spongebob"
+	params.Username = username
 	params.Attachments = []slack.Attachment{{
-		Text:     transformText(lastMessage),
-		Fallback: "*Spongebob mocking meme*",
+		Text:     mockedText,
+		Fallback: fallback,
 		ImageURL: memeURL,
 	}}
 	params.IconURL = iconURL

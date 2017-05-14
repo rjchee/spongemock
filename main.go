@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	atk     = os.Getenv("AUTHENTIFICATION_TOKEN")
+	atk     = os.Getenv("AUTHENTICATION_TOKEN")
 	vtk     = os.Getenv("VERIFICATION_TOKEN")
 	appURL  = os.Getenv("APP_URL")
 	iconURL = appURL + "/static/icon.png"

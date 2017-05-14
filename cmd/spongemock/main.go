@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/nlopes/slack"
@@ -25,12 +26,19 @@ var (
 	iconURL string
 	memeURL string
 	api     = slack.New(atk)
+
+	textRegexp = regexp.MustCompile("&amp;|&lt;|&gt;|.?")
 )
 
 func transformText(m string) string {
 	var buffer bytes.Buffer
-	for i := 0; i < len(m); i++ {
-		ch := m[i : i+1]
+	letters := textRegexp.FindAllString(m, -1)
+	for _, ch := range letters {
+		// ignore html escaped entities
+		if len(ch) > 1 {
+			buffer.WriteString(ch)
+			continue
+		}
 		if rand.Int()%2 == 0 {
 			ch = strings.ToUpper(ch)
 		} else {

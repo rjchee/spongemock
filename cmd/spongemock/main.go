@@ -31,7 +31,7 @@ var (
 	api     = slack.New(atk)
 
 	textRegexp = regexp.MustCompile("&amp;|&lt;|&gt;|.?")
-	userRegexp = regexp.MustCompile("^<@(U[0-9A-F]+)\\|.+?>$")
+	userRegexp = regexp.MustCompile("^<@(U\\w+)\\|.+?>$")
 )
 
 func transformText(m string) string {

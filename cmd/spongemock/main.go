@@ -30,7 +30,7 @@ var (
 	memeURL string
 	api     = slack.New(atk)
 
-	textRegexp = regexp.MustCompile("&amp;|&lt;|&gt;|.?")
+	textRegexp = regexp.MustCompile("&amp;|&lt;|&gt;|<.+?>|.?")
 	userRegexp = regexp.MustCompile("^<@(U\\w+)\\|.+?>$")
 )
 
@@ -133,9 +133,7 @@ func handleSlack(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		status = http.StatusBadRequest
-		log.Println(len(reqText), reqText)
-		return
+		message = reqText
 	}
 
 	mockedText := transformText(message)

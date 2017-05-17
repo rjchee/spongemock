@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -82,9 +83,19 @@ func getLastSlackMessage(c string, u string) (string, error) {
 	if u != "" {
 		log.Printf("searching for messages by user %s\n", u)
 	}
-	h, err := api.GetChannelHistory(c, slack.NewHistoryParameters())
+	histParams := slack.NewHistoryParameters()
+	var h *slack.History
+	var err error
+	if c[0] == 'C' {
+		h, err = api.GetChannelHistory(c, histParams)
+	} else if c[0] == 'G' {
+		// handle private channels
+		h, err = api.GetGroupHistory(c, histParams)
+	} else {
+		err = fmt.Errorf("unknown channel type, channel_id = %s", c)
+	}
 	if err != nil {
-		log.Printf("history API request error: %s", err)
+		log.Printf("history API request error: %s\n", err)
 		return "", err
 	}
 

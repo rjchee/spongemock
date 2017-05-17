@@ -1,0 +1,30 @@
+{
+    "name": "Spongemock",
+    "description": "Creates spongebob mocking memes on various media",
+    "keywords": [
+        "meme",
+        "spongebob",
+        "slack"
+    ],
+    "repository": "https://github.com/rjchee/spongemock",
+    "logo": "https://spongemock.herokuapp.com/static/spongemockicon.jpg",
+    "env": {
+        "APP_URL": {
+            "description": "The URL for the app (usually https://your-app-name.herokuapp.com/",
+            "value": ""
+        },
+        "AUTHENTICATION_TOKEN": {
+            "description": "Your Slack OAuth Access token",
+            "value": ""
+        },
+        "VERIFICATION_TOKEN": {
+            "description": "Your Slack verification token",
+            "value": ""
+        }
+    },
+    "buildpacks": [
+        {
+            "url": "heroku/go"
+        }
+    ]
+}

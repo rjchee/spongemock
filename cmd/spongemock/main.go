@@ -91,6 +91,9 @@ func getLastSlackMessage(c string, u string) (string, error) {
 	} else if c[0] == 'G' {
 		// handle private channels
 		h, err = api.GetGroupHistory(c, histParams)
+	} else if c[0] == 'D' {
+		// handle direct messages
+		h, err = api.GetIMHistory(c, histParams)
 	} else {
 		err = fmt.Errorf("unknown channel type, channel_id = %s", c)
 	}

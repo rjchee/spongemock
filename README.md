@@ -8,6 +8,6 @@ will have Spongebob mock the last person who sent a message in the channel.
 ## TODO
 - [x] Support referencing a user to mock
 - [x] Support supplying a plaintext message to mock
-- [ ] Support mocking in threads, dms, private channels, etc.
+- [x] Support mocking in dms, private channels, etc.
 - [ ] Support other messaging platforms like Facebook
 - [ ] Add unit tests

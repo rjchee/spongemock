@@ -13,13 +13,20 @@
             "description": "The URL for the app (usually https://your-app-name.herokuapp.com/",
             "value": ""
         },
-        "AUTHENTICATION_TOKEN": {
-            "description": "Your Slack OAuth Access token",
-            "value": ""
+        "PLUGINS": {
+            "description": "Comma-separated list of components you want to run (Example: slack,twitter,messenger). If blank, all components are run",
+            "value": "",
+            "required": false
         },
-        "VERIFICATION_TOKEN": {
+        "SLACK_OAUTH_TOKEN": {
+            "description": "Your Slack OAuth Access token",
+            "value": "",
+            "required": false
+        },
+        "SLACK_VERIFICATION_TOKEN": {
             "description": "Your Slack verification token",
-            "value": ""
+            "value": "",
+            "required": false
         }
     },
     "buildpacks": [

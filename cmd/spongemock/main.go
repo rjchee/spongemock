@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -34,6 +35,18 @@ var (
 	textRegexp = regexp.MustCompile("&amp;|&lt;|&gt;|<.+?>|.?")
 	userRegexp = regexp.MustCompile("^<@(U\\w+)\\|.+?>$")
 )
+
+type responseType string
+
+const (
+	inChannel responseType = "in_channel"
+	ephemeral responseType = "ephemeral"
+)
+
+type slackSlashResponse struct {
+	ResponseType responseType `json:"response_type,omitempty"`
+	Text         string       `json:"text"`
+}
 
 func transformText(m string) string {
 	var buffer bytes.Buffer
@@ -122,7 +135,18 @@ func getLastSlackMessage(c string, u string) (string, error) {
 
 func handleSlack(w http.ResponseWriter, r *http.Request) {
 	status := http.StatusOK
+	response := slackSlashResponse{}
 	defer func() {
+		if response != (slackSlashResponse{}) {
+			output, err := json.Marshal(response)
+			if err != nil {
+				status = http.StatusInternalServerError
+				log.Printf("error marshalling response json: %s\n", err)
+			} else {
+				w.Header().Add("Content-type", "application/json")
+				defer w.Write(output)
+			}
+		}
 		w.WriteHeader(status)
 	}()
 	if !isValidSlackRequest(r) {
@@ -131,7 +155,7 @@ func handleSlack(w http.ResponseWriter, r *http.Request) {
 	}
 	channel := r.PostFormValue("channel_id")
 	reqText := r.PostFormValue("text")
-	log.Printf("command: %s %s\n", r.PostFormValue("command"), reqText)
+	log.Printf("incoming command: %s %s\n", r.PostFormValue("command"), reqText)
 	var message string
 	var err error
 	if reqText == "" {
@@ -146,6 +170,14 @@ func handleSlack(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusInternalServerError
 			return
 		}
+	} else if reqText == "help" {
+		response.ResponseType = ephemeral
+		response.Text = strings.Join([]string{
+			"`/spongemock` will mock the last message in the channel",
+			"`/spongemock @user` will mock the last message from that user",
+			"`/spongemock text` will mock the given text",
+		}, "\n")
+		return
 	} else {
 		message = reqText
 	}

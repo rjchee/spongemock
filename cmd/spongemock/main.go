@@ -8,11 +8,10 @@ import (
 )
 
 var (
-	plugins []Plugin
-	port    string
+	port string
 
-	allPlugins = map[string]Plugin{
-		"slack": NewSlackPlugin(),
+	allPlugins = []WebPlugin{
+		NewSlackPlugin(),
 	}
 )
 
@@ -32,17 +31,28 @@ func (p mainPlugin) RegisterHandles(m *http.ServeMux) {
 	m.Handle("/static/", http.StripPrefix("/static/", fs))
 }
 
+func (p mainPlugin) Name() string {
+	return "main"
+}
+
 func main() {
-	plugins = append(plugins, mainPlugin{})
+	plugins := []WebPlugin{mainPlugin{}}
 
 	whitelist := os.Getenv("PLUGINS")
 	if whitelist == "" {
-		for _, v := range allPlugins {
-			plugins = append(plugins, v)
+		for _, p := range allPlugins {
+			plugins = append(plugins, p)
 		}
 	} else {
+		pluginSet := make(map[string]struct{})
 		for _, v := range strings.Split(whitelist, ",") {
-			plugins = append(plugins, allPlugins[strings.ToLower(v)])
+			pluginSet[v] = struct{}{}
+		}
+
+		for _, p := range allPlugins {
+			if _, ok := pluginSet[p.Name()]; ok {
+				plugins = append(plugins, p)
+			}
 		}
 	}
 

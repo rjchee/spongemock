@@ -43,7 +43,11 @@ func (p slackPlugin) RegisterHandles(m *http.ServeMux) {
 	m.HandleFunc("/slack", handleSlack)
 }
 
-func NewSlackPlugin() Plugin {
+func (p slackPlugin) Name() string {
+	return "slack"
+}
+
+func NewSlackPlugin() WebPlugin {
 	return slackPlugin{}
 }
 

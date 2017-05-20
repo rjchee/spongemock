@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"os"
 )
@@ -24,10 +23,10 @@ type EnvVariable struct {
 	Variable *string
 }
 
-type WebPlugin interface {
+type WorkerPlugin interface {
 	Name() string
 	EnvVariables() []EnvVariable
-	RegisterHandles(*http.ServeMux)
+	Start(chan error)
 }
 
 func init() {

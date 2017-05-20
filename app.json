@@ -27,6 +27,26 @@
             "description": "Your Slack verification token",
             "value": "",
             "required": false
+        },
+        "TWITTER_CONSUMER_KEY": {
+            "description": "Your Twitter consumer key (API key)",
+            "value": "",
+            "required": false
+        },
+        "TWITTER_CONSUMER_SECRET": {
+            "description": "Your Twitter consumer secret (API secret)",
+            "value": "",
+            "required": false
+        },
+        "TWITTER_ACCESS_TOKEN": {
+            "description": "Your Twitter access token (make sure it has direct message access",
+            "value": "",
+            "required": false
+        },
+        "TWITTER_ACCESS_TOKEN_SECRET": {
+            "description": "Your Twitter access token secret",
+            "value": "",
+            "required": false
         }
     },
     "buildpacks": [

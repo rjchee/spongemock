@@ -2,14 +2,41 @@
 	"ImportPath": "github.com/rjchee/spongemock",
 	"GoVersion": "go1.8",
 	"GodepVersion": "v79",
-        "Packages": [
-            "./cmd/..."
-        ],
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
+		{
+			"ImportPath": "github.com/cenkalti/backoff",
+			"Comment": "v1.0.0-19-g5d150e7",
+			"Rev": "5d150e7eec023ce7a124856b37c68e54b4050ac7"
+		},
+		{
+			"ImportPath": "github.com/dghubble/go-twitter/twitter",
+			"Rev": "d7141a7cba567120d53d0a136fce068864b43f8c"
+		},
+		{
+			"ImportPath": "github.com/dghubble/oauth1",
+			"Comment": "v0.4.0-16-g7d51c10",
+			"Rev": "7d51c10e15ca32917b32ce43f6e25840d6951db4"
+		},
+		{
+			"ImportPath": "github.com/dghubble/sling",
+			"Comment": "v1.1.0-4-gbbfb829",
+			"Rev": "bbfb8293bd33a6baad33d718aacf66ef73a29f30"
+		},
+		{
+			"ImportPath": "github.com/google/go-querystring/query",
+			"Rev": "53e6ce116135b80d037921a7fdd5138cf32d7a8a"
+		},
 		{
 			"ImportPath": "github.com/nlopes/slack",
 			"Comment": "v0.0.1-210-g72d15a0",
 			"Rev": "72d15a0fc0b773a59c00f78b9e7d97eeb8c4281f"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "d9558e5c97f85372afee28cf2b6059d7d3818919"
 		},
 		{
 			"ImportPath": "golang.org/x/net/websocket",

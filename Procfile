@@ -1,1 +1,2 @@
 web: spongemock
+worker: worker

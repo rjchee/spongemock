@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/dghubble/go-twitter/twitter"
@@ -28,6 +29,7 @@ var (
 
 	twitterMentionRegex = regexp.MustCompile("^@\\w+\\s*")
 	twitterTextRegex    = regexp.MustCompile("@\\w+|\\s+|.?")
+	twitterQuoteRegex   = regexp.MustCompile("https://t\\.co/\\w+$")
 	twitterAPIClient    *twitter.Client
 	twitterUploadClient *http.Client
 )
@@ -154,6 +156,24 @@ func transformTwitterText(t string) string {
 	return buffer.String()
 }
 
+func lookupTweetText(tweetID int64) (string, error) {
+	params := twitter.StatusLookupParams{
+		IncludeEntities: twitter.Bool(false),
+	}
+	tweets, resp, err := twitterAPIClient.Statuses.Lookup([]int64{tweetID}, &params)
+	if err != nil {
+		return "", fmt.Errorf("status lookup error: %s", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("status lookup HTTP status code: %d", resp.StatusCode)
+	}
+	if len(tweets) == 0 {
+		return "", errors.New("number of returned tweets is 0")
+	}
+	return fmt.Sprintf("@%s %s", tweets[0].User.ScreenName, trimReply(tweets[0].Text)), nil
+}
+
 type twitterImageData struct {
 	ImageType string `json:"image_type"`
 	Width     int    `json:"w"`
@@ -215,13 +235,11 @@ func parseUploadResponse(res *http.Response) (int64, string, error) {
 	if _, err := resBuf.ReadFrom(res.Body); err != nil {
 		return 0, "", fmt.Errorf("reading from http response body error: %s", err)
 	}
-	log.Println("http body:", resBuf.String())
 
 	resp := twitterUploadResponse{}
 	if err := json.Unmarshal(resBuf.Bytes(), &resp); err != nil {
 		return 0, "", fmt.Errorf("unmarshalling twitter upload response error: %s", err)
 	}
-	log.Printf("json struct: %+v\n", resp)
 
 	// TODO: add logic dealing with the expires_after_secs
 	return resp.MediaID, resp.MediaIDStr, nil
@@ -269,29 +287,40 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 	logMessageStruct(tweet, "Tweet")
 
 	var tt string
+	var err error
 	if tweet.InReplyToStatusIDStr == "" {
 		// case where someone tweets @ the bot
 
-		tt = tweet.Text
+		if twitterQuoteRegex.MatchString(tweet.Text) {
+			// quote retweets should mock the retweeted person
+			shortenedURL := twitterQuoteRegex.FindString(tweet.Text)
+			resp, err := http.Get(shortenedURL)
+			if err != nil {
+				ch <- fmt.Errorf("error following shortened url %s: %s", shortenedURL, err)
+				return
+			}
+			tweetURL := resp.Request.URL
+			resp.Body.Close()
+			tweetIDStr := filepath.Base(tweetURL.Path)
+			tweetID, err := strconv.ParseInt(tweetIDStr, 10, 64)
+			if err != nil {
+				ch <- fmt.Errorf("invalid tweet id %s", tweetIDStr)
+				return
+			}
+			tt, err = lookupTweetText(tweetID)
+			if err != nil {
+				ch <- err
+				return
+			}
+		} else {
+			tt = tweet.Text
+		}
 	} else if tweet.User.ScreenName != twitterUsername {
-		params := twitter.StatusLookupParams{
-			IncludeEntities: twitter.Bool(false),
-		}
-		tweets, resp, err := twitterAPIClient.Statuses.Lookup([]int64{tweet.InReplyToStatusID}, &params)
+		tt, err = lookupTweetText(tweet.InReplyToStatusID)
 		if err != nil {
-			ch <- fmt.Errorf("status lookup error: %s", err)
+			ch <- err
 			return
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			ch <- fmt.Errorf("status lookup HTTP status code: %d", resp.StatusCode)
-			return
-		}
-		if len(tweets) == 0 {
-			ch <- errors.New("number of returned tweets is 0")
-			return
-		}
-		tt = fmt.Sprintf("@%s %s", tweets[0].User.ScreenName, trimReply(tweets[0].Text))
 	} else {
 		return
 	}

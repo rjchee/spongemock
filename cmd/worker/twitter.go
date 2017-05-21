@@ -299,6 +299,7 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 
 	rt := fmt.Sprintf("@%s %s", tweet.User.ScreenName, transformTwitterText(tt))
 	if len(rt) > maxTweetLen {
+		log.Println("Exceeded max tweet length:", len(rt), rt)
 		rt = fmt.Sprintf("@%s %s", tweet.User.ScreenName, transformTwitterText(trimReply(tt)))
 	}
 	mediaID, mediaIDStr, err := uploadImage()

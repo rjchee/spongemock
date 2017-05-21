@@ -33,6 +33,7 @@ var (
 )
 
 const (
+	maxTweetLen              = 140
 	groupThreshold           = 0.8
 	twitterUploadURL         = "https://upload.twitter.com/1.1/media/upload.json"
 	twitterUploadMetadataURL = "https://upload.twitter.com/1.1/media/metadata/create.json"
@@ -126,7 +127,6 @@ func trimReply(t string) string {
 }
 
 func transformTwitterText(t string) string {
-	t = trimReply(t)
 	var buffer bytes.Buffer
 	letters := twitterTextRegex.FindAllString(t, -1)
 	trFuncs := []func(string) string{
@@ -298,6 +298,9 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 	}
 
 	rt := fmt.Sprintf("@%s %s", tweet.User.ScreenName, transformTwitterText(tt))
+	if len(rt) > maxTweetLen {
+		rt = fmt.Sprintf("@%s %s", tweet.User.ScreenName, transformTwitterText(trimReply(tt)))
+	}
 	mediaID, mediaIDStr, err := uploadImage()
 	if err != nil {
 		ch <- fmt.Errorf("upload image error: %s", err)

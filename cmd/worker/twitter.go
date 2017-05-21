@@ -275,7 +275,6 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 		tt = tweet.Text
 	} else if tweet.User.ScreenName != twitterUsername {
 		params := twitter.StatusLookupParams{
-			TrimUser:        twitter.Bool(true),
 			IncludeEntities: twitter.Bool(false),
 		}
 		tweets, resp, err := twitterAPIClient.Statuses.Lookup([]int64{tweet.InReplyToStatusID}, &params)
@@ -292,7 +291,7 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 			ch <- errors.New("number of returned tweets is 0")
 			return
 		}
-		tt = tweets[0].Text
+		tt = fmt.Sprintf("@%s %s", tweets[0].User.ScreenName, trimReply(tweets[0].Text))
 	} else {
 		return
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -25,6 +26,7 @@ var (
 	twitterAuthToken      string
 	twitterAuthSecret     string
 
+	twitterMentionRegex = regexp.MustCompile("^@\\w+\\s*")
 	twitterTextRegex    = regexp.MustCompile("@\\w+|\\s+|.?")
 	twitterAPIClient    *twitter.Client
 	twitterUploadClient *http.Client
@@ -116,7 +118,15 @@ func logMessageStruct(msg interface{}, desc string) {
 	log.Printf("Received %s: %+v\n", desc, msg)
 }
 
+func trimReply(t string) string {
+	for twitterMentionRegex.MatchString(t) {
+		t = twitterMentionRegex.ReplaceAllString(t, "")
+	}
+	return t
+}
+
 func transformTwitterText(t string) string {
+	t = trimReply(t)
 	var buffer bytes.Buffer
 	letters := twitterTextRegex.FindAllString(t, -1)
 	trFuncs := []func(string) string{
@@ -218,12 +228,12 @@ func parseUploadResponse(res *http.Response) (int64, string, error) {
 }
 
 type twitterAltText struct {
-	Text string `json:text`
+	Text string `json:"text"`
 }
 
 type twitterImageMetadata struct {
-	MediaID string          `json:media_id`
-	AltText *twitterAltText `json:alt_text`
+	MediaID string          `json:"media_id"`
+	AltText *twitterAltText `json:"alt_text"`
 }
 
 func uploadMetadata(mediaID, text string) error {
@@ -258,34 +268,62 @@ func uploadMetadata(mediaID, text string) error {
 func handleTweet(tweet *twitter.Tweet, ch chan error) {
 	logMessageStruct(tweet, "Tweet")
 
+	var tt string
 	if tweet.InReplyToStatusIDStr == "" {
 		// case where someone tweets @ the bot
 
-		tt := transformTwitterText(strings.TrimPrefix(tweet.Text, fmt.Sprintf("@%s ", twitterUsername)))
-		rt := fmt.Sprintf("@%s %s", tweet.User.ScreenName, tt)
-		mediaID, mediaIDStr, err := uploadImage()
+		tt = tweet.Text
+	} else if tweet.User.ScreenName != twitterUsername {
+		params := twitter.StatusLookupParams{
+			TrimUser:        twitter.Bool(true),
+			IncludeEntities: twitter.Bool(false),
+		}
+		tweets, resp, err := twitterAPIClient.Statuses.Lookup([]int64{tweet.InReplyToStatusID}, &params)
 		if err != nil {
-			ch <- fmt.Errorf("upload image error: %s", err)
+			ch <- fmt.Errorf("status lookup error: %s", err)
 			return
 		}
-		if err = uploadMetadata(mediaIDStr, tt); err != nil {
-			// we can continue from a metadata upload error
-			// because it is not essential
-			ch <- fmt.Errorf("metadata upload error: %s", err)
-		}
-
-		replyParams := twitter.StatusUpdateParams{
-			InReplyToStatusID: tweet.ID,
-			TrimUser:          twitter.Bool(true),
-			MediaIds:          []int64{mediaID},
-		}
-		_, resp, err := twitterAPIClient.Statuses.Update(rt, &replyParams)
 		defer resp.Body.Close()
-		if err != nil {
-			ch <- fmt.Errorf("status update error: %s", err)
-		} else if resp.StatusCode != http.StatusOK {
-			ch <- fmt.Errorf("response tweet status code: %d", resp.StatusCode)
+		if resp.StatusCode != http.StatusOK {
+			ch <- fmt.Errorf("status lookup HTTP status code: %d", resp.StatusCode)
+			return
 		}
+		if len(tweets) == 0 {
+			ch <- errors.New("number of returned tweets is 0")
+			return
+		}
+		tt = tweets[0].Text
+	} else {
+		return
+	}
+
+	rt := fmt.Sprintf("@%s %s", tweet.User.ScreenName, transformTwitterText(tt))
+	mediaID, mediaIDStr, err := uploadImage()
+	if err != nil {
+		ch <- fmt.Errorf("upload image error: %s", err)
+		return
+	}
+	if err = uploadMetadata(mediaIDStr, tt); err != nil {
+		// we can continue from a metadata upload error
+		// because it is not essential
+		ch <- fmt.Errorf("metadata upload error: %s", err)
+	}
+
+	params := twitter.StatusUpdateParams{
+		InReplyToStatusID: tweet.ID,
+		TrimUser:          twitter.Bool(true),
+		MediaIds:          []int64{mediaID},
+	}
+	_, resp, err := twitterAPIClient.Statuses.Update(rt, &params)
+	if err != nil {
+		ch <- fmt.Errorf("status update error: %s", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		ch <- fmt.Errorf("response tweet status code: %d", resp.StatusCode)
+		return
 	}
 }
 

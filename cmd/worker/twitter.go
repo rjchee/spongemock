@@ -108,8 +108,12 @@ func logMessage(msg interface{}, desc string) {
 	if msgJSON, err := json.MarshalIndent(msg, "", "  "); err == nil {
 		log.Printf("Received %s: %s\n", desc, string(msgJSON[:]))
 	} else {
-		log.Printf("Received %s: %v\n", desc, msg)
+		logMessageStruct(msg, desc)
 	}
+}
+
+func logMessageStruct(msg interface{}, desc string) {
+	log.Printf("Received %s: %+v\n", desc, msg)
 }
 
 func transformTwitterText(t string) string {
@@ -252,19 +256,18 @@ func uploadMetadata(mediaID, text string) error {
 }
 
 func handleTweet(tweet *twitter.Tweet, ch chan error) {
-	logMessage(tweet, "Tweet")
+	logMessageStruct(tweet, "Tweet")
 
 	if tweet.InReplyToStatusIDStr == "" {
 		// case where someone tweets @ the bot
 
-		tt := transformTwitterText(tweet.Text)
+		tt := transformTwitterText(strings.TrimPrefix(tweet.Text, fmt.Sprintf("@%s ", twitterUsername)))
 		rt := fmt.Sprintf("@%s %s", tweet.User.ScreenName, tt)
 		mediaID, mediaIDStr, err := uploadImage()
 		if err != nil {
 			ch <- fmt.Errorf("upload image error: %s", err)
 			return
 		}
-		log.Println("media ID:", mediaIDStr)
 		if err = uploadMetadata(mediaIDStr, tt); err != nil {
 			// we can continue from a metadata upload error
 			// because it is not essential

@@ -25,12 +25,13 @@ var (
 	twitterAuthToken      string
 	twitterAuthSecret     string
 
-	twitterTextRegex    = regexp.MustCompile("@\\w+|.?")
+	twitterTextRegex    = regexp.MustCompile("@\\w+|\\s+|.?")
 	twitterAPIClient    *twitter.Client
 	twitterUploadClient *http.Client
 )
 
 const (
+	groupThreshold           = 0.8
 	twitterUploadURL         = "https://upload.twitter.com/1.1/media/upload.json"
 	twitterUploadMetadataURL = "https://upload.twitter.com/1.1/media/metadata/create.json"
 )
@@ -114,13 +115,23 @@ func logMessage(msg interface{}, desc string) {
 func transformTwitterText(t string) string {
 	var buffer bytes.Buffer
 	letters := twitterTextRegex.FindAllString(t, -1)
+	trFuncs := []func(string) string{
+		strings.ToUpper,
+		strings.ToLower,
+	}
+	idx := rand.Intn(2)
+	groupSize := rand.Intn(2) + 1
 	for _, ch := range letters {
 		// ignore twitter usernames
-		if len(ch) == 1 {
-			if rand.Intn(2) == 0 {
-				ch = strings.ToUpper(ch)
-			} else {
-				ch = strings.ToLower(ch)
+		if len(ch) == 1 && strings.TrimSpace(ch) != "" {
+			ch = trFuncs[idx](ch)
+			groupSize--
+			if groupSize == 0 {
+				idx = (idx + 1) % 2
+				groupSize = 1
+				if rand.Float64() > groupThreshold {
+					groupSize++
+				}
 			}
 		}
 		buffer.WriteString(ch)

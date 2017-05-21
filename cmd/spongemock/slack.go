@@ -19,8 +19,12 @@ var (
 	slackVerificationToken string
 	slackAPI               *slack.Client
 
-	slackTextRegex = regexp.MustCompile("&amp;|&lt;|&gt;|<.+?>|.?")
+	slackTextRegex = regexp.MustCompile("&amp;|&lt;|&gt;|<.+?>|\\s+|.?")
 	slackUserRegex = regexp.MustCompile("^<@(U\\w+)\\|.+?>$")
+)
+
+const (
+	groupThreshold = 0.8
 )
 
 type slackPlugin struct{}
@@ -59,13 +63,23 @@ const (
 func transformSlackText(m string) string {
 	var buffer bytes.Buffer
 	letters := slackTextRegex.FindAllString(m, -1)
+	trFuncs := []func(string) string{
+		strings.ToUpper,
+		strings.ToLower,
+	}
+	idx := rand.Intn(2)
+	groupSize := rand.Intn(2) + 1
 	for _, ch := range letters {
 		// ignore html escaped entities
-		if len(ch) == 1 {
-			if rand.Intn(2) == 0 {
-				ch = strings.ToUpper(ch)
-			} else {
-				ch = strings.ToLower(ch)
+		if len(ch) == 1 && strings.TrimSpace(ch) != "" {
+			ch = trFuncs[idx](ch)
+			groupSize--
+			if groupSize == 0 {
+				idx = (idx + 1) % 2
+				groupSize = 1
+				if rand.Float64() > groupThreshold {
+					groupSize++
+				}
 			}
 		}
 		buffer.WriteString(ch)

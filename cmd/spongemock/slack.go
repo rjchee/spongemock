@@ -61,14 +61,12 @@ func transformSlackText(m string) string {
 	letters := slackTextRegex.FindAllString(m, -1)
 	for _, ch := range letters {
 		// ignore html escaped entities
-		if len(ch) > 1 {
-			buffer.WriteString(ch)
-			continue
-		}
-		if rand.Int()%2 == 0 {
-			ch = strings.ToUpper(ch)
-		} else {
-			ch = strings.ToLower(ch)
+		if len(ch) == 1 {
+			if rand.Intn(2) == 0 {
+				ch = strings.ToUpper(ch)
+			} else {
+				ch = strings.ToLower(ch)
+			}
 		}
 		buffer.WriteString(ch)
 	}

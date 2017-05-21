@@ -14,8 +14,8 @@ var (
 )
 
 const (
-	iconPath = "/static/icon.png"
-	memePath = "/static/spongemock.jpg"
+	iconPath = "static/icon.png"
+	memePath = "static/spongemock.jpg"
 )
 
 type EnvVariable struct {

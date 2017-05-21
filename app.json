@@ -28,6 +28,11 @@
             "value": "",
             "required": false
         },
+        "TWITTER_USERNAME": {
+            "description": "Your Twitter username",
+            "value": "",
+            "required": false
+        },
         "TWITTER_CONSUMER_KEY": {
             "description": "Your Twitter consumer key (API key)",
             "value": "",

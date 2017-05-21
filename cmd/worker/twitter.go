@@ -289,8 +289,6 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 	var tt string
 	var err error
 	if tweet.InReplyToStatusIDStr == "" {
-		// case where someone tweets @ the bot
-
 		if twitterQuoteRegex.MatchString(tweet.Text) {
 			// quote retweets should mock the retweeted person
 			shortenedURL := twitterQuoteRegex.FindString(tweet.Text)
@@ -313,7 +311,8 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 				return
 			}
 		} else {
-			tt = tweet.Text
+			// case where someone tweets @ the bot
+			tt = trimReply(tweet.Text)
 		}
 	} else if tweet.User.ScreenName != twitterUsername {
 		tt, err = lookupTweetText(tweet.InReplyToStatusID)

@@ -23,10 +23,6 @@ var (
 	slackUserRegex = regexp.MustCompile("^<@(U\\w+)\\|.+?>$")
 )
 
-const (
-	groupThreshold = 0.8
-)
-
 type slackPlugin struct{}
 
 func (p slackPlugin) EnvVariables() []EnvVariable {

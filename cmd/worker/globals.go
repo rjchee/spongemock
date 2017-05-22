@@ -18,8 +18,9 @@ var (
 )
 
 const (
-	iconPath = "static/icon.png"
-	memePath = "static/spongemock.jpg"
+	iconPath       = "static/icon.png"
+	memePath       = "static/spongemock.jpg"
+	groupThreshold = 0.8
 )
 
 type EnvVariable struct {

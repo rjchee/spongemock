@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,14 +29,13 @@ var (
 
 	twitterMentionRegex = regexp.MustCompile("^@\\w+\\s*")
 	twitterTextRegex    = regexp.MustCompile("@\\w+|\\s+|.?")
-	twitterQuoteRegex   = regexp.MustCompile("https://t\\.co/\\w+$")
+	twitterQuoteRegex   = regexp.MustCompile("https?://t\\.co/\\w+$")
 	twitterAPIClient    *twitter.Client
 	twitterUploadClient *http.Client
 )
 
 const (
 	maxTweetLen              = 140
-	groupThreshold           = 0.8
 	twitterUploadURL         = "https://upload.twitter.com/1.1/media/upload.json"
 	twitterUploadMetadataURL = "https://upload.twitter.com/1.1/media/metadata/create.json"
 )
@@ -85,11 +85,12 @@ func (p twitterPlugin) Start(ch chan error) {
 	twitterUploadClient = httpClient
 	twitterAPIClient = twitter.NewClient(httpClient)
 
-	params := &twitter.StreamUserParams{
+	handleOfflineActivity(ch)
+
+	stream, err := twitterAPIClient.Streams.User(&twitter.StreamUserParams{
 		With:          "user",
 		StallWarnings: twitter.Bool(true),
-	}
-	stream, err := twitterAPIClient.Streams.User(params)
+	})
 	if err != nil {
 		ch <- err
 		return
@@ -108,6 +109,159 @@ func (p twitterPlugin) Start(ch chan error) {
 	demux.HandleChan(stream.Messages)
 }
 
+func handleOfflineActivity(ch chan error) {
+	id, err := queryLastMentionID()
+	if err != nil {
+		ch <- err
+		return
+	}
+	twitterSinceID := id
+
+	mentions := getMentionTimelineStream(id, ch)
+	// make the done channel non-blocking
+	done := make(chan struct{}, 2)
+	defer close(done)
+	tweets := getUserTimelineStream(id, ch, done)
+
+	var lastTweetID int64
+	lastTweet, open := <-tweets
+	if open {
+		lastTweetID = lastTweet.InReplyToStatusID
+		if lastTweetID > twitterSinceID {
+			// after responding to all previous tweets, newly added tweets can
+			// only be later than this id
+			twitterSinceID = lastTweetID
+		}
+	}
+
+	for mention := range mentions {
+		for open && lastTweetID > mention.ID {
+			lastTweet, open = <-tweets
+			if open {
+				lastTweetID = lastTweet.InReplyToStatusID
+			}
+		}
+		if lastTweetID != mention.ID {
+			// mention hasn't been responded to
+			handleTweet(&mention, ch)
+		}
+	}
+	// close the user timeline stream if necesary
+	if open {
+		// send done message to the tweet channel if it's not done
+		done <- struct{}{}
+		// unblock the user timeline channel
+		<-tweets
+	}
+
+	// store next id in db
+	if id == 0 {
+		// we never stored the id into the db
+		_, err := DB.Exec("INSERT INTO tw_timeline_ids (name, tid) VALUES ($1, $2);", "mentions", twitterSinceID)
+		if err != nil {
+			ch <- fmt.Errorf("error inserting since id into db: %s", err)
+			return
+		}
+	} else {
+		_, err := DB.Exec("UPDATE tw_timeline_ids SET tid=$1 WHERE name=$2", twitterSinceID, "mentions")
+		if err != nil {
+			ch <- fmt.Errorf("error updating db: %s", err)
+			return
+		}
+	}
+}
+
+func queryLastMentionID() (int64, error) {
+	if DB == nil {
+		// query from the start of time
+		return 0, nil
+	}
+	row := DB.QueryRow("SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=$1);", "tw_timeline_ids")
+	var tableExists bool
+	err := row.Scan(&tableExists)
+	if err != nil {
+		return 0, err
+	}
+	if !tableExists {
+		_, err := DB.Exec("CREATE TABLE tw_timeline_ids (id serial PRIMARY KEY, name text NOT NULL UNIQUE, tid bigint NOT NULL);")
+		if err != nil {
+			return 0, err
+		}
+	}
+	row = DB.QueryRow("SELECT tid FROM tw_timeline_ids WHERE name=$1", "mentions")
+	var mentionID int64
+	err = row.Scan(&mentionID)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	} else if err != nil {
+		return 0, err
+	}
+
+	return mentionID, nil
+}
+
+func getUserTimelineStream(sinceID int64, ch chan error, done chan struct{}) chan twitter.Tweet {
+	tweetCh := make(chan twitter.Tweet, 20)
+	go func() {
+		defer close(tweetCh)
+		params := twitter.UserTimelineParams{
+			ScreenName:     twitterUsername,
+			SinceID:        sinceID,
+			TrimUser:       twitter.Bool(true),
+			ExcludeReplies: twitter.Bool(false),
+		}
+
+		for {
+			tweets, resp, err := twitterAPIClient.Timelines.UserTimeline(&params)
+			if err != nil {
+				ch <- fmt.Errorf("error getting user timeline: %s", err)
+				return
+			}
+			resp.Body.Close()
+			if len(tweets) == 0 {
+				return
+			}
+			for _, tweet := range tweets {
+				select {
+				case <-done:
+					return
+				default:
+					tweetCh <- tweet
+				}
+			}
+			params.MaxID = tweets[len(tweets)-1].ID - 1
+		}
+	}()
+	return tweetCh
+}
+
+func getMentionTimelineStream(sinceID int64, ch chan error) chan twitter.Tweet {
+	tweetCh := make(chan twitter.Tweet, 20)
+	go func() {
+		defer close(tweetCh)
+		params := twitter.MentionTimelineParams{
+			SinceID: sinceID,
+		}
+
+		for {
+			tweets, resp, err := twitterAPIClient.Timelines.MentionTimeline(&params)
+			if err != nil {
+				ch <- fmt.Errorf("error getting mention timeline: %s", err)
+				return
+			}
+			resp.Body.Close()
+			if len(tweets) == 0 {
+				return
+			}
+			for _, tweet := range tweets {
+				tweetCh <- tweet
+			}
+			params.MaxID = tweets[len(tweets)-1].ID - 1
+		}
+	}()
+	return tweetCh
+}
+
 func logMessage(msg interface{}, desc string) {
 	if msgJSON, err := json.MarshalIndent(msg, "", "  "); err == nil {
 		log.Printf("Received %s: %s\n", desc, string(msgJSON[:]))
@@ -123,6 +277,9 @@ func logMessageStruct(msg interface{}, desc string) {
 func trimReply(t string) string {
 	for twitterMentionRegex.MatchString(t) {
 		t = twitterMentionRegex.ReplaceAllString(t, "")
+	}
+	for twitterQuoteRegex.MatchString(t) {
+		t = twitterQuoteRegex.ReplaceAllString(t, "")
 	}
 	return t
 }
@@ -156,21 +313,21 @@ func transformTwitterText(t string) string {
 }
 
 func lookupTweetText(tweetID int64) (string, error) {
-	params := twitter.StatusLookupParams{
+	params := twitter.StatusShowParams{
 		IncludeEntities: twitter.Bool(false),
 	}
-	tweets, resp, err := twitterAPIClient.Statuses.Lookup([]int64{tweetID}, &params)
+	tweet, resp, err := twitterAPIClient.Statuses.Show(tweetID, &params)
 	if err != nil {
 		return "", fmt.Errorf("status lookup error: %s", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", fmt.Errorf("status lookup HTTP status code: %d", resp.StatusCode)
 	}
-	if len(tweets) == 0 {
+	if tweet == nil {
 		return "", errors.New("number of returned tweets is 0")
 	}
-	return fmt.Sprintf("@%s %s", tweets[0].User.ScreenName, trimReply(tweets[0].Text)), nil
+	return fmt.Sprintf("@%s %s", tweet.User.ScreenName, trimReply(tweet.Text)), nil
 }
 
 type twitterImageData struct {
@@ -225,7 +382,7 @@ func uploadImage() (int64, string, error) {
 }
 
 func parseUploadResponse(res *http.Response) (int64, string, error) {
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		return 0, "", fmt.Errorf("image upload bad status: %s", res.Status)
 	}
 	defer res.Body.Close()
@@ -275,7 +432,7 @@ func uploadMetadata(mediaID, text string) error {
 		return fmt.Errorf("sending POST request error: %s", err)
 	}
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		return fmt.Errorf("metadata upload returned status code %d", res.StatusCode)
 	}
 
@@ -336,7 +493,7 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		ch <- fmt.Errorf("response tweet status code: %d", resp.StatusCode)
 		return
 	}

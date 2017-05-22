@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/dghubble/go-twitter/twitter"
@@ -288,33 +287,18 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 
 	var tt string
 	var err error
-	if tweet.InReplyToStatusIDStr == "" {
-		if twitterQuoteRegex.MatchString(tweet.Text) {
+	if tweet.InReplyToStatusIDStr == "" ||
+		(tweet.InReplyToScreenName == twitterUsername &&
+			tweet.Text != fmt.Sprintf("@%s", twitterUsername)) {
+		if tweet.QuotedStatus != nil {
 			// quote retweets should mock the retweeted person
-			shortenedURL := twitterQuoteRegex.FindString(tweet.Text)
-			resp, err := http.Get(shortenedURL)
-			if err != nil {
-				ch <- fmt.Errorf("error following shortened url %s: %s", shortenedURL, err)
-				return
-			}
-			tweetURL := resp.Request.URL
-			resp.Body.Close()
-			tweetIDStr := filepath.Base(tweetURL.Path)
-			tweetID, err := strconv.ParseInt(tweetIDStr, 10, 64)
-			if err != nil {
-				ch <- fmt.Errorf("invalid tweet id %s", tweetIDStr)
-				return
-			}
-			tt, err = lookupTweetText(tweetID)
-			if err != nil {
-				ch <- err
-				return
-			}
+			tt = tweet.QuotedStatus.Text
 		} else {
 			// case where someone tweets @ the bot
 			tt = trimReply(tweet.Text)
 		}
 	} else if tweet.User.ScreenName != twitterUsername {
+		// mock the text the user replied to
 		tt, err = lookupTweetText(tweet.InReplyToStatusID)
 		if err != nil {
 			ch <- err

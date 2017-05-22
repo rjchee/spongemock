@@ -30,6 +30,16 @@
 			"Rev": "53e6ce116135b80d037921a7fdd5138cf32d7a8a"
 		},
 		{
+			"ImportPath": "github.com/lib/pq",
+			"Comment": "go1.0-cutoff-166-g2704adc",
+			"Rev": "2704adc878c21e1329f46f6e56a1c387d788ff94"
+		},
+		{
+			"ImportPath": "github.com/lib/pq/oid",
+			"Comment": "go1.0-cutoff-166-g2704adc",
+			"Rev": "2704adc878c21e1329f46f6e56a1c387d788ff94"
+		},
+		{
 			"ImportPath": "github.com/nlopes/slack",
 			"Comment": "v0.0.1-210-g72d15a0",
 			"Rev": "72d15a0fc0b773a59c00f78b9e7d97eeb8c4281f"

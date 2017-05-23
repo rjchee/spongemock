@@ -440,6 +440,9 @@ func uploadMetadata(mediaID, text string) error {
 }
 
 func handleTweet(tweet *twitter.Tweet, ch chan error) {
+	if tweet.User.ScreenName == twitterUsername {
+		return
+	}
 	logMessageStruct(tweet, "Tweet")
 
 	var tt string
@@ -454,15 +457,13 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 			// case where someone tweets @ the bot
 			tt = trimReply(tweet.Text)
 		}
-	} else if tweet.User.ScreenName != twitterUsername {
+	} else {
 		// mock the text the user replied to
 		tt, err = lookupTweetText(tweet.InReplyToStatusID)
 		if err != nil {
 			ch <- err
 			return
 		}
-	} else {
-		return
 	}
 
 	rt := fmt.Sprintf("@%s %s", tweet.User.ScreenName, transformTwitterText(tt))

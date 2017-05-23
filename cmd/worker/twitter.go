@@ -154,19 +154,21 @@ func handleOfflineActivity(ch chan error) {
 		<-tweets
 	}
 
-	// store next id in db
-	if id == 0 {
-		// we never stored the id into the db
-		_, err := DB.Exec("INSERT INTO tw_timeline_ids (name, tid) VALUES ($1, $2);", "mentions", twitterSinceID)
-		if err != nil {
-			ch <- fmt.Errorf("error inserting since id into db: %s", err)
-			return
-		}
-	} else {
-		_, err := DB.Exec("UPDATE tw_timeline_ids SET tid=$1 WHERE name=$2", twitterSinceID, "mentions")
-		if err != nil {
-			ch <- fmt.Errorf("error updating db: %s", err)
-			return
+	if !DEBUG {
+		// store next id in db
+		if id == 0 {
+			// we never stored the id into the db
+			_, err := DB.Exec("INSERT INTO tw_timeline_ids (name, tid) VALUES ($1, $2);", "mentions", twitterSinceID)
+			if err != nil {
+				ch <- fmt.Errorf("error inserting since id into db: %s", err)
+				return
+			}
+		} else {
+			_, err := DB.Exec("UPDATE tw_timeline_ids SET tid=$1 WHERE name=$2", twitterSinceID, "mentions")
+			if err != nil {
+				ch <- fmt.Errorf("error updating db: %s", err)
+				return
+			}
 		}
 	}
 }
@@ -471,32 +473,37 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 		log.Println("Exceeded max tweet length:", len(rt), rt)
 		rt = fmt.Sprintf("@%s %s", tweet.User.ScreenName, transformTwitterText(trimReply(tt)))
 	}
-	mediaID, mediaIDStr, err := uploadImage()
-	if err != nil {
-		ch <- fmt.Errorf("upload image error: %s", err)
-		return
-	}
-	if err = uploadMetadata(mediaIDStr, tt); err != nil {
-		// we can continue from a metadata upload error
-		// because it is not essential
-		ch <- fmt.Errorf("metadata upload error: %s", err)
-	}
 
-	params := twitter.StatusUpdateParams{
-		InReplyToStatusID: tweet.ID,
-		TrimUser:          twitter.Bool(true),
-		MediaIds:          []int64{mediaID},
-	}
-	_, resp, err := twitterAPIClient.Statuses.Update(rt, &params)
-	if err != nil {
-		ch <- fmt.Errorf("status update error: %s", err)
-		return
-	}
-	defer resp.Body.Close()
+	if DEBUG {
+		log.Println("tweeting:", rt)
+	} else {
+		mediaID, mediaIDStr, err := uploadImage()
+		if err != nil {
+			ch <- fmt.Errorf("upload image error: %s", err)
+			return
+		}
+		if err = uploadMetadata(mediaIDStr, tt); err != nil {
+			// we can continue from a metadata upload error
+			// because it is not essential
+			ch <- fmt.Errorf("metadata upload error: %s", err)
+		}
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		ch <- fmt.Errorf("response tweet status code: %d", resp.StatusCode)
-		return
+		params := twitter.StatusUpdateParams{
+			InReplyToStatusID: tweet.ID,
+			TrimUser:          twitter.Bool(true),
+			MediaIds:          []int64{mediaID},
+		}
+		_, resp, err := twitterAPIClient.Statuses.Update(rt, &params)
+		if err != nil {
+			ch <- fmt.Errorf("status update error: %s", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			ch <- fmt.Errorf("response tweet status code: %d", resp.StatusCode)
+			return
+		}
 	}
 }
 

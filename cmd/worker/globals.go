@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strings"
 
 	_ "github.com/lib/pq"
 )
@@ -15,6 +16,7 @@ var (
 	IconURL string
 	MemeURL string
 	DB      *sql.DB
+	DEBUG   bool
 )
 
 const (
@@ -58,6 +60,8 @@ func init() {
 			DB = nil
 		}
 	}
+
+	DEBUG = strings.ToLower(os.Getenv("DEBUG")) != "false"
 }
 
 func SetEnvVariable(name string, value *string) {

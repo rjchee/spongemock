@@ -62,6 +62,9 @@ func init() {
 	}
 
 	DEBUG = strings.ToLower(os.Getenv("DEBUG")) != "false"
+	if DEBUG {
+		log.Println("DEBUG mode:", DEBUG)
+	}
 }
 
 func SetEnvVariable(name string, value *string) {

@@ -169,12 +169,20 @@ func handleSlack(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				status = http.StatusInternalServerError
 				log.Printf("error marshalling response json: %s\n", err)
+			} else if DEBUG {
+				defer log.Printf("response: %+v\n", response)
 			} else {
 				w.Header().Add("Content-type", "application/json")
 				defer w.Write(output)
 			}
 		}
-		w.WriteHeader(status)
+		if DEBUG {
+			log.Println("actual http status:", status)
+			// DEBUG mode means no messages should be sent out
+			w.WriteHeader(http.StatusServiceUnavailable)
+		} else {
+			w.WriteHeader(status)
+		}
 	}()
 	if !isValidSlackRequest(r) {
 		status = http.StatusBadRequest
@@ -222,8 +230,12 @@ func handleSlack(w http.ResponseWriter, r *http.Request) {
 		ImageURL: MemeURL,
 	}}
 	params.IconURL = IconURL
-	_, _, err = slackAPI.PostMessage(channel, "", params)
-	if err != nil {
-		status = http.StatusInternalServerError
+	if DEBUG {
+		log.Printf("message: %+v\n", params)
+	} else {
+		_, _, err = slackAPI.PostMessage(channel, "", params)
+		if err != nil {
+			status = http.StatusInternalServerError
+		}
 	}
 }

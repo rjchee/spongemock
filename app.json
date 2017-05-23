@@ -11,11 +11,17 @@
     "env": {
         "APP_URL": {
             "description": "The URL for the app (usually https://your-app-name.herokuapp.com/",
-            "value": ""
+            "value": "",
+            "required": "true"
         },
         "PLUGINS": {
             "description": "Comma-separated list of components you want to run (Example: slack,twitter,messenger). If blank, all components are run",
-            "value": "",
+            "value": "slack,twitter",
+            "required": false
+        },
+        "DEBUG": {
+            "description": "A non-false value will make the app log the messages it would've sent instead of sending them.",
+            "value": "false",
             "required": false
         },
         "SLACK_OAUTH_TOKEN": {

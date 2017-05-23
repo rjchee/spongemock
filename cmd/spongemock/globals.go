@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 )
 
 var (
 	AppURL  string
 	IconURL string
 	MemeURL string
+	DEBUG   bool
 )
 
 const (
@@ -42,6 +44,11 @@ func init() {
 	IconURL = u.ResolveReference(icon).String()
 	meme, _ := url.Parse(memePath)
 	MemeURL = u.ResolveReference(meme).String()
+
+	DEBUG = strings.ToLower(os.Getenv("DEBUG")) != "false"
+	if DEBUG {
+		log.Println("In DEBUG mode")
+	}
 }
 
 func SetEnvVariable(name string, value *string) {

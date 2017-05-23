@@ -350,45 +350,45 @@ func lookupTweetText(tweetID int64) (string, error) {
 	return fmt.Sprintf("@%s %s", tweet.User.ScreenName, trimReply(tweet.Text)), nil
 }
 
-func uploadImage() (int64, string, error) {
+func uploadImage() (int64, string, bool, error) {
 	if time.Now().Before(uploadExpireTime) {
 		log.Println("retrieving cached values", lastMediaIDStr)
-		return lastMediaID, lastMediaIDStr, nil
+		return lastMediaID, lastMediaIDStr, true, nil
 	}
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
 	memeFile, err := os.Open(memePath)
 	if err != nil {
-		return 0, "", fmt.Errorf("opening meme image file error: %s", err)
+		return 0, "", false, fmt.Errorf("opening meme image file error: %s", err)
 	}
 	defer memeFile.Close()
 
 	fw, err := w.CreateFormFile("media", filepath.Base(memePath))
 	if err != nil {
-		return 0, "", fmt.Errorf("creating multipart form file header error: %s", err)
+		return 0, "", false, fmt.Errorf("creating multipart form file header error: %s", err)
 	}
 	if _, err = io.Copy(fw, memeFile); err != nil {
-		return 0, "", fmt.Errorf("io copy error: %s", err)
+		return 0, "", false, fmt.Errorf("io copy error: %s", err)
 	}
 	w.Close()
 
 	req, err := http.NewRequest("POST", twitterUploadURL, &b)
 	if err != nil {
-		return 0, "", fmt.Errorf("creating POST request error: %s", err)
+		return 0, "", false, fmt.Errorf("creating POST request error: %s", err)
 	}
 	req.Header.Set("Content-Type", w.FormDataContentType())
 
 	res, err := twitterUploadClient.Do(req)
 	if err != nil {
-		return 0, "", fmt.Errorf("sending POST request error: %s", err)
+		return 0, "", false, fmt.Errorf("sending POST request error: %s", err)
 	}
 
 	id, idStr, err := parseUploadResponse(res)
 	if err != nil {
-		return 0, "", err
+		return 0, "", false, err
 	}
 
-	return id, idStr, nil
+	return id, idStr, false, nil
 }
 
 type twitterImageData struct {
@@ -504,15 +504,17 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 	if DEBUG {
 		log.Println("tweeting:", rt)
 	} else {
-		mediaID, mediaIDStr, err := uploadImage()
+		mediaID, mediaIDStr, cached, err := uploadImage()
 		if err != nil {
 			ch <- fmt.Errorf("upload image error: %s", err)
 			return
 		}
-		if err = uploadMetadata(mediaIDStr, tt); err != nil {
-			// we can continue from a metadata upload error
-			// because it is not essential
-			ch <- fmt.Errorf("metadata upload error: %s", err)
+		if !cached {
+			if err = uploadMetadata(mediaIDStr, tt); err != nil {
+				// we can continue from a metadata upload error
+				// because it is not essential
+				ch <- fmt.Errorf("metadata upload error: %s", err)
+			}
 		}
 
 		params := twitter.StatusUpdateParams{

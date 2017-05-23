@@ -135,13 +135,16 @@ func handleOfflineActivity(ch chan error) {
 	}
 
 	for mention := range mentions {
-		for open && lastTweetID > mention.ID {
+		for open && (lastTweetID > mention.ID || lastTweetID == 0) {
 			lastTweet, open = <-tweets
 			if open {
 				lastTweetID = lastTweet.InReplyToStatusID
+				if lastTweetID > twitterSinceID {
+					twitterSinceID = lastTweetID
+				}
 			}
 		}
-		if lastTweetID != mention.ID {
+		if lastTweetID != 0 && lastTweetID != mention.ID {
 			// mention hasn't been responded to
 			handleTweet(&mention, ch)
 		}
@@ -154,7 +157,9 @@ func handleOfflineActivity(ch chan error) {
 		<-tweets
 	}
 
-	if !DEBUG {
+	if DEBUG {
+		log.Println("twitterSinceID:", twitterSinceID)
+	} else {
 		// store next id in db
 		if id == 0 {
 			// we never stored the id into the db

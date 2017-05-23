@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/dghubble/go-twitter/twitter"
 	"github.com/dghubble/oauth1"
@@ -32,9 +33,15 @@ var (
 	twitterQuoteRegex   = regexp.MustCompile("https?://t\\.co/\\w+$")
 	twitterAPIClient    *twitter.Client
 	twitterUploadClient *http.Client
+
+	uploadExpireTime time.Time
+	lastMediaID      int64
+	lastMediaIDStr   string
 )
 
 const (
+	// how much time to subtract from the media upload time in seconds
+	mediaUploadBuffer        = 5
 	maxTweetLen              = 140
 	twitterUploadURL         = "https://upload.twitter.com/1.1/media/upload.json"
 	twitterUploadMetadataURL = "https://upload.twitter.com/1.1/media/metadata/create.json"
@@ -343,21 +350,11 @@ func lookupTweetText(tweetID int64) (string, error) {
 	return fmt.Sprintf("@%s %s", tweet.User.ScreenName, trimReply(tweet.Text)), nil
 }
 
-type twitterImageData struct {
-	ImageType string `json:"image_type"`
-	Width     int    `json:"w"`
-	Height    int    `json:"h"`
-}
-
-type twitterUploadResponse struct {
-	MediaID          int64             `json:"media_id"`
-	MediaIDStr       string            `json:"media_id_string"`
-	Size             int               `json:"size"`
-	ExpiresAfterSecs int               `json:"expires_after_secs"`
-	Image            *twitterImageData `json:"image"`
-}
-
 func uploadImage() (int64, string, error) {
+	if time.Now().Before(uploadExpireTime) {
+		log.Println("retrieving cached values", lastMediaIDStr)
+		return lastMediaID, lastMediaIDStr, nil
+	}
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
 	memeFile, err := os.Open(memePath)
@@ -394,6 +391,20 @@ func uploadImage() (int64, string, error) {
 	return id, idStr, nil
 }
 
+type twitterImageData struct {
+	ImageType string `json:"image_type"`
+	Width     int    `json:"w"`
+	Height    int    `json:"h"`
+}
+
+type twitterUploadResponse struct {
+	MediaID          int64             `json:"media_id"`
+	MediaIDStr       string            `json:"media_id_string"`
+	Size             int               `json:"size"`
+	ExpiresAfterSecs int               `json:"expires_after_secs"`
+	Image            *twitterImageData `json:"image"`
+}
+
 func parseUploadResponse(res *http.Response) (int64, string, error) {
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		return 0, "", fmt.Errorf("image upload bad status: %s", res.Status)
@@ -410,7 +421,12 @@ func parseUploadResponse(res *http.Response) (int64, string, error) {
 		return 0, "", fmt.Errorf("unmarshalling twitter upload response error: %s", err)
 	}
 
-	// TODO: add logic dealing with the expires_after_secs
+	if expDur := resp.ExpiresAfterSecs - mediaUploadBuffer; expDur > 0 {
+		log.Println("expire duration:", expDur)
+		uploadExpireTime = time.Now().Add(time.Duration(expDur) * time.Second)
+		lastMediaID = resp.MediaID
+		lastMediaIDStr = resp.MediaIDStr
+	}
 	return resp.MediaID, resp.MediaIDStr, nil
 }
 

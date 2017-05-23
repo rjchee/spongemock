@@ -285,6 +285,11 @@ func trimReply(t string) string {
 	for twitterMentionRegex.MatchString(t) {
 		t = twitterMentionRegex.ReplaceAllString(t, "")
 	}
+	t = trimQuotes(t)
+	return t
+}
+
+func trimQuotes(t string) string {
 	for twitterQuoteRegex.MatchString(t) {
 		t = twitterQuoteRegex.ReplaceAllString(t, "")
 	}
@@ -292,6 +297,7 @@ func trimReply(t string) string {
 }
 
 func transformTwitterText(t string) string {
+	t = trimQuotes(t)
 	var buffer bytes.Buffer
 	letters := twitterTextRegex.FindAllString(t, -1)
 	trFuncs := []func(string) string{

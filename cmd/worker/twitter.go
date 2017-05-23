@@ -28,7 +28,7 @@ var (
 	twitterAuthToken      string
 	twitterAuthSecret     string
 
-	twitterMentionRegex = regexp.MustCompile("^@\\w+\\s*")
+	twitterMentionRegex = regexp.MustCompile("(?i)^(rt )?@\\w+\\s*")
 	twitterTextRegex    = regexp.MustCompile("@\\w+|\\s+|.?")
 	twitterQuoteRegex   = regexp.MustCompile("https?://t\\.co/\\w+$")
 	twitterAPIClient    *twitter.Client

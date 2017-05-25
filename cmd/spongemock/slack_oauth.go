@@ -83,3 +83,11 @@ func lookupSlackOAuthToken(userID string) (string, error) {
 		return token, nil
 	}
 }
+
+func deleteSlackOAuthToken(userID string) error {
+	_, err := DB.Exec("DELETE FROM slack_oauth WHERE user_id=$1;", userID)
+	if err != nil {
+		return fmt.Errorf("error deleting oauth token: %s", err)
+	}
+	return nil
+}

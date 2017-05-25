@@ -96,7 +96,6 @@ func getLastSlackMessage(api *slack.Client, c string, u string) (string, string,
 		err = fmt.Errorf("unknown channel type, channel_id = %s", c)
 	}
 	if err != nil {
-		log.Printf("history API request error: %s\n", err)
 		return "", "", err
 	}
 
@@ -115,6 +114,11 @@ func getLastSlackMessage(api *slack.Client, c string, u string) (string, string,
 	err = errors.New("no last message found")
 	log.Println(err)
 	return "", "", err
+}
+
+func setNoOAuthResponse(r *slackSlashResponse) {
+	r.ResponseType = ephemeral
+	r.Text = "Looks like you haven't added Spongemock as an app on Slack yet! Please click <" + getPublicOAuthLink() + "|here> to give me the permissions to post in your channels."
 }
 
 func handleSlack(w http.ResponseWriter, r *http.Request) {
@@ -169,8 +173,7 @@ func handleSlack(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	} else if authToken == "" {
-		response.ResponseType = ephemeral
-		response.Text = "Looks like you haven't added Spongemock as an app on Slack yet! Please click <" + getPublicOAuthLink() + "|here> to give me the permissions to post in your channels."
+		setNoOAuthResponse(&response)
 		return
 	}
 	api := slack.New(authToken)
@@ -181,13 +184,33 @@ func handleSlack(w http.ResponseWriter, r *http.Request) {
 	if reqText == "" {
 		message, mockedUser, err = getLastSlackMessage(api, channel, "")
 		if err != nil {
-			status = http.StatusInternalServerError
+			if err.Error() == "token_revoked" {
+				err = deleteSlackOAuthToken(userID)
+				if err != nil {
+					status = http.StatusInternalServerError
+					log.Println(err)
+					return
+				}
+				setNoOAuthResponse(&response)
+			} else {
+				status = http.StatusInternalServerError
+			}
 			return
 		}
 	} else if slackUserRegex.MatchString(reqText) {
 		message, mockedUser, err = getLastSlackMessage(api, channel, slackUserRegex.FindStringSubmatch(reqText)[1])
 		if err != nil {
-			status = http.StatusInternalServerError
+			if err.Error() == "token_revoked" {
+				err = deleteSlackOAuthToken(userID)
+				if err != nil {
+					status = http.StatusInternalServerError
+					log.Println(err)
+					return
+				}
+				setNoOAuthResponse(&response)
+			} else {
+				status = http.StatusInternalServerError
+			}
 			return
 		}
 	} else {
@@ -221,8 +244,18 @@ func handleSlack(w http.ResponseWriter, r *http.Request) {
 		}
 		_, _, err = api.PostMessage(channel, text, params)
 		if err != nil {
-			status = http.StatusInternalServerError
-			log.Println(err)
+			if err.Error() == "token_revoked" {
+				err = deleteSlackOAuthToken(userID)
+				if err != nil {
+					status = http.StatusInternalServerError
+					log.Println(err)
+					return
+				}
+				setNoOAuthResponse(&response)
+			} else {
+				status = http.StatusInternalServerError
+			}
+			return
 		}
 	}
 }

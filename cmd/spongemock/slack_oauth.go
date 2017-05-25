@@ -22,7 +22,7 @@ func setupOAuthDB() error {
 }
 
 func getPublicOAuthLink() string {
-	return fmt.Sprintf("https://slack.com/oauth/authorize?&client_id=%s&scope=commands,channels:history,chat:write:bot,groups:history,im:history,mpim:history", slackClientID)
+	return fmt.Sprintf("https://slack.com/oauth/authorize?&client_id=%s&scope=commands,channels:history,groups:history,im:history,mpim:history", slackClientID)
 }
 
 func handleSlackOAuth(w http.ResponseWriter, r *http.Request) {

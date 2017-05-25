@@ -81,9 +81,6 @@ func isValidSlackRequest(r *http.Request) bool {
 }
 
 func getLastSlackMessage(api *slack.Client, c string, u string) (string, error) {
-	if u != "" {
-		log.Printf("searching for messages by user %s\n", u)
-	}
 	histParams := slack.NewHistoryParameters()
 	var h *slack.History
 	var err error

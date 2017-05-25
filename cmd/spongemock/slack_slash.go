@@ -196,6 +196,7 @@ func handleSlack(w http.ResponseWriter, r *http.Request) {
 	mockedText := transformSlackText(message)
 	if mockedText == "" {
 		status = http.StatusInternalServerError
+		log.Println("no message to mock")
 		return
 	}
 
@@ -213,6 +214,7 @@ func handleSlack(w http.ResponseWriter, r *http.Request) {
 		_, _, err = api.PostMessage(channel, "", params)
 		if err != nil {
 			status = http.StatusInternalServerError
+			log.Println(err)
 		}
 	}
 }

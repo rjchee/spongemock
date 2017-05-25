@@ -1,7 +1,7 @@
 Spongemock
 ==========
-Spongemock is a collection of services that add Spongebob mocking functionality to a
-variety of platforms. Currently, only Slack and Twitter are supported.
+Spongemock is a collection of services that add Spongebob mocking functionality
+to a variety of platforms. Currently, only Slack and Twitter are supported.
 
 Table of Contents
 =================
@@ -23,7 +23,8 @@ The Spongemock server can be hosted on Heroku by clicking the button below.
 
 [![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
 
-Of course, you can always choose to host it somewhere else. You can run the app with
+Of course, you can always choose to host it somewhere else. You can run the app
+with
 ```bash
 go run cmd/spongemock/main.go&
 go run cmd/worker/main.go&
@@ -54,21 +55,20 @@ Example
 
 Slack Setup
 -----------
-First, you want to create a Slack App and create an OAuth Access token with the
-following permissions:
-- `chat:write:bot`
-- `channels:history`
-- `groups:history`
-- `im:history`
-- `mpim:history`
+First, create a Slack App and add a slash command. The request URL will be of
+the form `$APP_URL/slack`. You also want to escape channels, users, and links
+sent to your app.
 
 To run the Slack plugin, the following environmental variables are required:
-- `SLACK_OAUTH_TOKEN`: This is your Slack OAuth Access token.
+- `SLACK_CLIENT_ID`: This is your Slack Client ID.
+- `SLACK_CLIENT_SECRET`: This is your Slack Client Secret.
 - `SLACK_VERIFICATION_TOKEN`: This is your Slack verification token.
 
-Finally, you want to register your deployed app as a slash command on your
-Slack app. The request URL will be of the form `$APP_URL/slack`. You also want
-to escape channels, users, and links sent to your app.
+Setting the client ID and client secrets will allow the server to acquire OAuth
+tokens from Slack so that it can read the messages to mock in channels and post
+to those channels as well. The verification token is a secret string that Slack
+will send to your server so the server knows that it is indeed Slack sending
+requests and not some malicious third party.
 
 Twitter Integration
 ===================
@@ -96,10 +96,14 @@ create a new app for your bot. Create an Access Token.
 
 To run the Twitter bot, the following environmental variables are required:
 - `TWITTER_USERNAME`: The handle for the Twitter account the bot will run on.
-- `TWITTER_CONSUMER_KEY`: The consumer key (API key) listed in your Twitter application.
-- `TWITTER_CONSUMER_SECRET`: The consumer secret (API secret) listed in your Twitter application.
-- `TWITTER_ACCESS_TOKEN`: The access token listed in your Twitter application. You may need to delete a newline character to make this work.
-- `TWITTER_ACCESS_TOKEN_SECRET`: The access token secret listed in your Twitter application.
+- `TWITTER_CONSUMER_KEY`: The consumer key (API key) listed in your Twitter
+  application.
+- `TWITTER_CONSUMER_SECRET`: The consumer secret (API secret) listed in your
+  Twitter application.
+- `TWITTER_ACCESS_TOKEN`: The access token listed in your Twitter application.
+  You may need to delete a newline character to make this work.
+- `TWITTER_ACCESS_TOKEN_SECRET`: The access token secret listed in your Twitter
+  application.
 
 If you are running the bot on a Heroku, you may need to run `heroku ps:scale
 worker=1` since the Twitter bot runs on a worker dyno. Additionally, if you

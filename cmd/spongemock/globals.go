@@ -68,6 +68,20 @@ func init() {
 	}
 }
 
+func createTable(name, schema string) error {
+	row := DB.QueryRow("SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=$1);", name)
+	var tableExists bool
+	err := row.Scan(&tableExists)
+	if err != nil {
+		return err
+	}
+	if !tableExists {
+		_, err := DB.Exec("CREATE TABLE " + name + " " + schema + ";")
+		return err
+	}
+	return nil
+}
+
 func SetEnvVariable(name string, value *string) {
 	*value = os.Getenv(name)
 	if *value == "" {

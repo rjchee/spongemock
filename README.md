@@ -64,11 +64,10 @@ To run the Slack plugin, the following environmental variables are required:
 - `SLACK_CLIENT_SECRET`: This is your Slack Client Secret.
 - `SLACK_VERIFICATION_TOKEN`: This is your Slack verification token.
 
-Setting the client ID and client secrets will allow the server to acquire OAuth
-tokens from Slack so that it can read the messages to mock in channels and post
-to those channels as well. The verification token is a secret string that Slack
-will send to your server so the server knows that it is indeed Slack sending
-requests and not some malicious third party.
+After adding those variables, you want to complete your setup of the Slack app.
+Install your app from the Basic Information page, and distribute it by
+completing the instructions. For the OAuth Redirect URL, you will need to use
+`$APP_URL/slack/oauth2`.
 
 Twitter Integration
 ===================

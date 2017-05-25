@@ -80,7 +80,7 @@ func isValidSlackRequest(r *http.Request) bool {
 	return true
 }
 
-func getLastSlackMessage(api *slack.Client, c string, u string) (string, error) {
+func getLastSlackMessage(api *slack.Client, c string, u string) (string, string, error) {
 	histParams := slack.NewHistoryParameters()
 	var h *slack.History
 	var err error
@@ -97,7 +97,7 @@ func getLastSlackMessage(api *slack.Client, c string, u string) (string, error) 
 	}
 	if err != nil {
 		log.Printf("history API request error: %s\n", err)
-		return "", err
+		return "", "", err
 	}
 
 	for _, msg := range h.Messages {
@@ -109,12 +109,12 @@ func getLastSlackMessage(api *slack.Client, c string, u string) (string, error) 
 		if u != "" && msg.User != u {
 			continue
 		}
-		return msg.Text, nil
+		return msg.Text, msg.User, nil
 	}
 
 	err = errors.New("no last message found")
 	log.Println(err)
-	return "", err
+	return "", "", err
 }
 
 func handleSlack(w http.ResponseWriter, r *http.Request) {
@@ -177,14 +177,15 @@ func handleSlack(w http.ResponseWriter, r *http.Request) {
 
 	channel := r.PostFormValue("channel_id")
 	var message string
+	var mockedUser string
 	if reqText == "" {
-		message, err = getLastSlackMessage(api, channel, "")
+		message, mockedUser, err = getLastSlackMessage(api, channel, "")
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
 		}
 	} else if slackUserRegex.MatchString(reqText) {
-		message, err = getLastSlackMessage(api, channel, slackUserRegex.FindStringSubmatch(reqText)[1])
+		message, mockedUser, err = getLastSlackMessage(api, channel, slackUserRegex.FindStringSubmatch(reqText)[1])
 		if err != nil {
 			status = http.StatusInternalServerError
 			return
@@ -207,11 +208,18 @@ func handleSlack(w http.ResponseWriter, r *http.Request) {
 		Fallback: slackFallback,
 		ImageURL: MemeURL,
 	}}
+	params.EscapeText = false
 	params.IconURL = IconURL
 	if DEBUG {
 		log.Printf("message: %+v\n", params)
 	} else {
-		_, _, err = api.PostMessage(channel, "", params)
+		var text string
+		if mockedUser == "" || mockedUser == userID {
+			text = fmt.Sprintf("<@%s>", userID)
+		} else {
+			text = fmt.Sprintf("<@%s>: /spongemock <@%s>", userID, mockedUser)
+		}
+		_, _, err = api.PostMessage(channel, text, params)
 		if err != nil {
 			status = http.StatusInternalServerError
 			log.Println(err)

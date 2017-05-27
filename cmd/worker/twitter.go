@@ -123,18 +123,16 @@ func lookupTweetText(tweetID int64) (string, error) {
 }
 
 func extractText(tweet *twitter.Tweet) string {
-	switch {
-	case tweet.ExtendedTweet != nil:
-		i := tweet.ExtendedTweet.DisplayTextRange
-		text := tweet.ExtendedTweet.FullText
-		return text[i.Start():i.End()]
-	case tweet.FullText == "":
-		return trimTweet(tweet.Text)
-	default:
-		i := tweet.DisplayTextRange
-		text := tweet.FullText
+	var text string
+	if tweet.FullText == "" {
+		text = tweet.Text
+	} else {
+		text = tweet.FullText
+	}
+	if i := tweet.DisplayTextRange; i.End() > 0 {
 		return text[i.Start():i.End()]
 	}
+	return text
 }
 
 func handleTweet(tweet *twitter.Tweet, ch chan error) {

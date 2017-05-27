@@ -111,10 +111,12 @@ func getUserTimelineStream(sinceID int64, ch chan error, done chan struct{}) cha
 	go func() {
 		defer close(tweetCh)
 		params := twitter.UserTimelineParams{
-			ScreenName:     twitterUsername,
-			SinceID:        sinceID,
-			TrimUser:       twitter.Bool(true),
-			ExcludeReplies: twitter.Bool(false),
+			ScreenName:      twitterUsername,
+			SinceID:         sinceID,
+			TrimUser:        twitter.Bool(true),
+			ExcludeReplies:  twitter.Bool(false),
+			IncludeRetweets: twitter.Bool(false),
+			TweetMode:       "extended",
 		}
 
 		for {
@@ -146,7 +148,8 @@ func getMentionTimelineStream(sinceID int64, ch chan error) chan twitter.Tweet {
 	go func() {
 		defer close(tweetCh)
 		params := twitter.MentionTimelineParams{
-			SinceID: sinceID,
+			SinceID:   sinceID,
+			TweetMode: "extended",
 		}
 
 		for {

@@ -12,11 +12,12 @@ const (
 )
 
 var (
-	twitterRetweetRegex  = regexp.MustCompile("^RT @\\w{1,15}:")
-	twitterMentionRegex  = regexp.MustCompile("^@\\w{1,15}\\s*")
-	twitterTextRegex     = regexp.MustCompile("@\\w{1,15}|\\s+|.?")
-	twitterQuoteRegex    = regexp.MustCompile("https?://t\\.co/\\w+$")
-	twitterTextTrimRegex = regexp.MustCompile(" ?@\\w{1,15}(\\s+|$)|.")
+	twitterTrimRegexps = []*regexp.Regexp{
+		regexp.MustCompile("^@\\w{1,15}\\s*"),
+		regexp.MustCompile("^RT @\\w{1,15}:"),
+		regexp.MustCompile("https?://t\\.co/\\w+$"),
+	}
+	twitterTextRegex = regexp.MustCompile("@\\w{1,15}|\\s+|.?")
 )
 
 func transformTwitterText(t string) string {
@@ -47,66 +48,48 @@ func transformTwitterText(t string) string {
 	return buffer.String()
 }
 
-func finalizeTweet(mentions, text string) string {
-	if len(mentions)+len(text) > maxTweetLen {
-		// first strategy to reduce tweet length is to trim out the unnecessary
-		// replies and links
-		text = trimReply(text)
+func finalizeTweet(mentions []string, text string) string {
+	prefix := strings.Join(mentions, " ") + " "
+	if len(prefix)+len(text) > maxTweetLen {
+		// first remove extraneous info from tweets
+		text = trimTweet(text)
 
-		if len(mentions)+len(text) > maxTweetLen {
-			// last strategy to reduce tweet length is to randomly remove
-			// letters from the text until it fits. The algorithm below tries
-			// to avoid other user mentions
-
-			indices := twitterTextTrimRegex.FindAllStringIndex(text, -1)
-			n := len(text)
-			for len(mentions)+n > maxTweetLen {
-				// avoid removing the first character because it would be
-				// obvious if it's missing
-				idx := rand.Intn(len(indices)-1) + 1
-				original := idx
-				if indices[idx][1]-indices[idx][0] > 1 {
-					idx = (idx + 1) % len(indices)
-					if idx == 0 {
-						idx = 1
-					}
-					for idx != original && indices[idx][1]-indices[idx][0] > 1 {
-						idx = (idx + 1) % len(indices)
-						if idx == 0 {
-							idx = 1
-						}
-					}
-				}
-				i := indices[idx]
-				indices = append(indices[:idx], indices[idx+1:]...)
-				n -= i[1] - i[0]
+		if len(prefix)+len(text) > maxTweetLen {
+			// try @ing only the person we're replying to
+			if len(mentions) > 1 {
+				prefix = mentions[0] + " "
 			}
 
-			var buf bytes.Buffer
-			for _, i := range indices {
-				buf.WriteString(text[i[0]:i[1]])
+			// truncate the tweet if too long
+			if len(prefix)+len(text) > maxTweetLen {
+				text = text[:maxTweetLen-len(prefix)]
 			}
-			text = buf.String()
 		}
 	}
 
-	return mentions + transformTwitterText(text)
+	return prefix + transformTwitterText(text)
 }
 
-func trimReply(t string) string {
-	t = trimQuotesAndRT(t)
-	for twitterMentionRegex.MatchString(t) {
-		t = twitterMentionRegex.ReplaceAllString(t, "")
+func matchAnyRegexp(s string, rs []*regexp.Regexp) bool {
+	for _, r := range rs {
+		if r.MatchString(s) {
+			return true
+		}
 	}
-	return t
+	return false
 }
 
-func trimQuotesAndRT(t string) string {
-	for twitterRetweetRegex.MatchString(t) {
-		t = twitterRetweetRegex.ReplaceAllString(t, "")
+func trimTweet(tweet string) string {
+	var last string
+	for matchAnyRegexp(tweet, twitterTrimRegexps) {
+		for _, r := range twitterTrimRegexps {
+			last = tweet
+			tweet = r.ReplaceAllString(tweet, "")
+			if tweet == "" {
+				return last
+			}
+		}
 	}
-	for twitterQuoteRegex.MatchString(t) {
-		t = twitterQuoteRegex.ReplaceAllString(t, "")
-	}
-	return t
+
+	return tweet
 }

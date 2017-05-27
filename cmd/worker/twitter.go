@@ -106,7 +106,7 @@ func logMessageStruct(msg interface{}, desc string) {
 
 func lookupTweetText(tweetID int64) (string, error) {
 	params := twitter.StatusShowParams{
-		IncludeEntities: twitter.Bool(false),
+		TweetMode: "extended",
 	}
 	tweet, resp, err := twitterAPIClient.Statuses.Show(tweetID, &params)
 	if err != nil {
@@ -119,7 +119,22 @@ func lookupTweetText(tweetID int64) (string, error) {
 	if tweet == nil {
 		return "", errors.New("number of returned tweets is 0")
 	}
-	return fmt.Sprintf("@%s %s", tweet.User.ScreenName, trimReply(tweet.Text)), nil
+	return extractText(tweet), nil
+}
+
+func extractText(tweet *twitter.Tweet) string {
+	switch {
+	case tweet.ExtendedTweet != nil:
+		i := tweet.ExtendedTweet.DisplayTextRange
+		text := tweet.ExtendedTweet.FullText
+		return text[i.Start():i.End()]
+	case tweet.FullText == "":
+		return trimTweet(tweet.Text)
+	default:
+		i := tweet.DisplayTextRange
+		text := tweet.FullText
+		return text[i.Start():i.End()]
+	}
 }
 
 func handleTweet(tweet *twitter.Tweet, ch chan error) {
@@ -132,17 +147,13 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 	logMessageStruct(tweet, "Tweet")
 
 	mentions := []string{"@" + tweet.User.ScreenName}
-	var text string
+	text := extractText(tweet)
 	var err error
 	if tweet.InReplyToStatusIDStr == "" ||
-		(tweet.InReplyToScreenName == twitterUsername &&
-			tweet.Text != fmt.Sprintf("@%s", twitterUsername)) {
+		!strings.Contains(text, "@"+twitterUsername) {
 		if tweet.QuotedStatus != nil {
 			// quote retweets should mock the retweeted person
-			text = trimQuotesAndRT(tweet.QuotedStatus.Text)
-		} else {
-			// case where someone tweets @ the bot
-			text = trimReply(tweet.Text)
+			text = extractText(tweet.QuotedStatus)
 		}
 	} else {
 		// mock the text the user replied to
@@ -151,12 +162,10 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 			ch <- err
 			return
 		}
-		text = trimQuotesAndRT(text)
 		mentions = append(mentions, "@"+tweet.InReplyToScreenName)
 	}
 
-	prefix := strings.Join(mentions, " ") + " "
-	finalTweet := finalizeTweet(prefix, text)
+	finalTweet := finalizeTweet(mentions, text)
 
 	if DEBUG {
 		log.Println("tweeting:", finalTweet)

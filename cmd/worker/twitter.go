@@ -164,6 +164,8 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 		mentions = append(mentions, "@"+tweet.InReplyToScreenName)
 	}
 
+	log.Println("tweet text:", text)
+
 	finalTweets := finalizeTweet(mentions, text)
 
 	if DEBUG {

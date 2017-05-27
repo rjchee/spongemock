@@ -45,7 +45,7 @@ func transformTwitterText(t string) string {
 
 func finalizeTweet(mentions []string, text string) []string {
 	var tweets []string
-	tweet := strings.Join(append(mentions, text), " ")
+	tweet := strings.Join(append(mentions, transformTwitterText(text)), " ")
 	if len(tweet) > maxTweetLen {
 		tweets = append(tweets, tweet[:maxTweetLen])
 		mentions = append([]string{"@" + twitterUsername}, mentions...)

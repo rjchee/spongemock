@@ -21,7 +21,7 @@ var (
 
 const (
 	// how much time to subtract from the media upload time in seconds
-	mediaUploadBuffer        = 5
+	mediaUploadBuffer        = 10
 	twitterUploadURL         = "https://upload.twitter.com/1.1/media/upload.json"
 	twitterUploadMetadataURL = "https://upload.twitter.com/1.1/media/metadata/create.json"
 )

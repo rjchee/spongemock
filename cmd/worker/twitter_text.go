@@ -43,19 +43,24 @@ func transformTwitterText(t string) string {
 	return buffer.String()
 }
 
-func finalizeTweet(mentions []string, text string) string {
-	prefix := strings.Join(mentions, " ") + " "
-	if len(prefix)+len(text) > maxTweetLen {
-		// try @ing only the person we're replying to
-		if len(mentions) > 1 {
-			prefix = mentions[0] + " "
+func finalizeTweet(mentions []string, text string) []string {
+	var tweets []string
+	tweet := strings.Join(append(mentions, text), " ")
+	if len(tweet) > maxTweetLen {
+		tweets = append(tweets, tweet[:maxTweetLen])
+		mentions = append([]string{"@" + twitterUsername}, mentions...)
+		for {
+			tweet = strings.Join(append(mentions, tweet[maxTweetLen:]), " ")
+			if len(tweet) > maxTweetLen {
+				tweets = append(tweets, tweet[:maxTweetLen])
+			} else {
+				tweets = append(tweets, tweet)
+				break
+			}
 		}
-
-		// truncate the tweet if too long
-		if len(prefix)+len(text) > maxTweetLen {
-			text = text[:maxTweetLen-len(prefix)]
-		}
+	} else {
+		tweets = append(tweets, tweet)
 	}
 
-	return prefix + transformTwitterText(text)
+	return tweets
 }

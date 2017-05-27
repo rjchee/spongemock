@@ -152,6 +152,7 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 		if tweet.QuotedStatus != nil {
 			// quote retweets should mock the retweeted person
 			text = extractText(tweet.QuotedStatus)
+			mentions = append(mentions, "@"+tweet.QuotedStatus.User.ScreenName)
 		}
 	} else {
 		// mock the text the user replied to
@@ -163,10 +164,10 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 		mentions = append(mentions, "@"+tweet.InReplyToScreenName)
 	}
 
-	finalTweet := finalizeTweet(mentions, text)
+	finalTweets := finalizeTweet(mentions, text)
 
 	if DEBUG {
-		log.Println("tweeting:", finalTweet)
+		log.Println("tweeting:", finalTweets)
 	} else {
 		mediaID, mediaIDStr, cached, err := uploadImage()
 		if err != nil {
@@ -186,16 +187,20 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 			TrimUser:          twitter.Bool(true),
 			MediaIds:          []int64{mediaID},
 		}
-		_, resp, err := twitterAPIClient.Statuses.Update(finalTweet, &params)
-		if err != nil {
-			ch <- fmt.Errorf("status update error: %s", err)
-			return
-		}
-		defer resp.Body.Close()
 
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			ch <- fmt.Errorf("response tweet status code: %d", resp.StatusCode)
-			return
+		for _, finalTweet := range finalTweets {
+			sentTweet, resp, err := twitterAPIClient.Statuses.Update(finalTweet, &params)
+			if err != nil {
+				ch <- fmt.Errorf("status update error: %s", err)
+				return
+			}
+			resp.Body.Close()
+
+			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+				ch <- fmt.Errorf("response tweet status code: %d", resp.StatusCode)
+				return
+			}
+			params.InReplyToStatusID = sentTweet.ID
 		}
 	}
 }

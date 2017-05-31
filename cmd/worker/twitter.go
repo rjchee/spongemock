@@ -130,7 +130,7 @@ func extractText(tweet *twitter.Tweet) string {
 		text = tweet.FullText
 	}
 	if i := tweet.DisplayTextRange; i.End() > 0 {
-		return text[i.Start():i.End()]
+		return string([]rune(text)[i.Start():i.End()])
 	}
 	return text
 }
@@ -149,6 +149,10 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 	var err error
 	if tweet.InReplyToStatusIDStr == "" ||
 		!strings.Contains(text, "@"+twitterUsername) {
+		// remove twitter username mention
+		if strings.HasPrefix(text, "@"+twitterUsername+" ") {
+			text = text[len(twitterUsername)+2:]
+		}
 		if tweet.QuotedStatus != nil {
 			// quote retweets should mock the retweeted person
 			text = extractText(tweet.QuotedStatus)
@@ -161,7 +165,9 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 			ch <- err
 			return
 		}
-		mentions = append(mentions, "@"+tweet.InReplyToScreenName)
+		if tweet.InReplyToScreenName != twitterUsername {
+			mentions = append(mentions, "@"+tweet.InReplyToScreenName)
+		}
 	}
 
 	log.Println("tweet text:", text)
@@ -169,7 +175,9 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 	finalTweets := finalizeTweet(mentions, text)
 
 	if DEBUG {
-		log.Println("tweeting:", finalTweets)
+		for _, finalTweet := range finalTweets {
+			log.Println("tweeting:", finalTweet)
+		}
 	} else {
 		mediaID, mediaIDStr, cached, err := uploadImage()
 		if err != nil {

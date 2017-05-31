@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -43,16 +44,20 @@ func transformTwitterText(t string) string {
 	return buffer.String()
 }
 
+func tweetTooLong(tweet string) bool {
+	return utf8.RuneCountInString(tweet) > maxTweetLen
+}
+
 func finalizeTweet(mentions []string, text string) []string {
 	var tweets []string
 	tweet := strings.Join(append(mentions, transformTwitterText(text)), " ")
-	if len(tweet) > maxTweetLen {
-		tweets = append(tweets, tweet[:maxTweetLen])
+	if tweetTooLong(tweet) {
+		tweets = append(tweets, string([]rune(tweet)[:maxTweetLen]))
 		mentions = append([]string{"@" + twitterUsername}, mentions...)
 		for {
 			tweet = strings.Join(append(mentions, tweet[maxTweetLen:]), " ")
-			if len(tweet) > maxTweetLen {
-				tweets = append(tweets, tweet[:maxTweetLen])
+			if tweetTooLong(tweet) {
+				tweets = append(tweets, string([]rune(tweet)[:maxTweetLen]))
 			} else {
 				tweets = append(tweets, tweet)
 				break

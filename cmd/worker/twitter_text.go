@@ -55,7 +55,7 @@ func finalizeTweet(mentions []string, text string) []string {
 		tweets = append(tweets, string([]rune(tweet)[:maxTweetLen]))
 		mentions = append([]string{"@" + twitterUsername}, mentions...)
 		for {
-			tweet = strings.Join(append(mentions, tweet[maxTweetLen:]), " ")
+			tweet = strings.Join(append(mentions, string([]rune(tweet)[maxTweetLen:])), " ")
 			if tweetTooLong(tweet) {
 				tweets = append(tweets, string([]rune(tweet)[:maxTweetLen]))
 			} else {

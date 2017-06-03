@@ -27,7 +27,7 @@ func transformTwitterText(t string) string {
 	groupSize := rand.Intn(2) + 1
 	for _, ch := range letters {
 		// ignore twitter usernames
-		if len(ch) == 1 && strings.TrimSpace(ch) != "" {
+		if len([]rune(ch)) == 1 && strings.TrimSpace(ch) != "" {
 			ch = trFuncs[idx](ch)
 			groupSize--
 			if groupSize == 0 {

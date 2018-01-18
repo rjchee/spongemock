@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	maxTweetLen = 140
+	maxTweetLen = 280
 )
 
 var (

@@ -48,7 +48,7 @@ func handleOfflineActivity(ch chan error) {
 			handleTweet(&mention, ch)
 		}
 	}
-	// close the user timeline stream if necesary
+	// close the user timeline stream if necessary
 	if open {
 		// send done message to the tweet channel if it's not done
 		done <- struct{}{}

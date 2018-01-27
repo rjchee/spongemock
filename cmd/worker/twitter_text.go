@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"html"
 	"math/rand"
 	"regexp"
 	"strings"
@@ -17,6 +18,7 @@ var (
 )
 
 func transformTwitterText(t string) string {
+	t = html.UnescapeString(t)
 	var buffer bytes.Buffer
 	letters := twitterTextRegex.FindAllString(t, -1)
 	trFuncs := []func(string) string{

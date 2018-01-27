@@ -42,8 +42,6 @@ func main() {
 		}
 	}
 
-	var errChans []chan error
-
 	agg := make(chan error)
 
 	for _, p := range plugins {
@@ -52,8 +50,7 @@ func main() {
 		}
 
 		ch := make(chan error)
-		errChans = append(errChans, ch)
-		go func(ch chan error) {
+		go func(ch <-chan error) {
 			for err := range ch {
 				agg <- pluginError{p.Name(), err}
 			}

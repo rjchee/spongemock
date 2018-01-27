@@ -62,7 +62,7 @@ func NewTwitterPlugin() WorkerPlugin {
 	return twitterPlugin{}
 }
 
-func (p twitterPlugin) Start(ch chan error) {
+func (p twitterPlugin) Start(ch chan<- error) {
 	defer close(ch)
 
 	config := oauth1.NewConfig(twitterConsumerKey, twitterConsumerSecret)
@@ -149,12 +149,12 @@ func extractText(tweet *twitter.Tweet) string {
 	return text
 }
 
-func handleTweet(tweet *twitter.Tweet, ch chan error) {
+func handleTweet(tweet *twitter.Tweet, ch chan<- error) (*twitter.Tweet, error) {
 	switch {
 	case tweet.User.ScreenName == twitterUsername:
-		return
+		return nil, errors.New("cannot mock my own tweet")
 	case tweet.RetweetedStatus != nil:
-		return
+		return nil, errors.New("cannot mock a retweet")
 	}
 	logMessageStruct(tweet, "Tweet")
 
@@ -177,7 +177,7 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 		text, err = lookupTweetText(tweet.InReplyToStatusID)
 		if err != nil {
 			ch <- err
-			return
+			return nil, err
 		}
 		if tweet.InReplyToScreenName != twitterUsername {
 			mentions = append(mentions, "@"+tweet.InReplyToScreenName)
@@ -192,11 +192,13 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 		for _, finalTweet := range finalTweets {
 			log.Println("tweeting:", finalTweet)
 		}
+		return nil, errors.New("cannot send a tweet in DEBUG mode")
 	} else {
 		mediaID, mediaIDStr, cached, err := uploadImage()
 		if err != nil {
-			ch <- fmt.Errorf("upload image error: %s", err)
-			return
+			err = fmt.Errorf("upload image error: %s", err)
+			ch <- err
+			return nil, err
 		}
 		if !cached {
 			if err = uploadMetadata(mediaIDStr, text); err != nil {
@@ -212,20 +214,27 @@ func handleTweet(tweet *twitter.Tweet, ch chan error) {
 			MediaIds:          []int64{mediaID},
 		}
 
-		for _, finalTweet := range finalTweets {
+		var res *twitter.Tweet
+		for i, finalTweet := range finalTweets {
 			sentTweet, resp, err := twitterAPIClient.Statuses.Update(finalTweet, &params)
 			if err != nil {
-				ch <- fmt.Errorf("status update error: %s", err)
-				return
+				err = fmt.Errorf("status update error: %s", err)
+				ch <- err
+				return nil, err
 			}
 			resp.Body.Close()
 
 			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-				ch <- fmt.Errorf("response tweet status code: %d", resp.StatusCode)
-				return
+				err = fmt.Errorf("response tweet status code: %d", resp.StatusCode)
+				ch <- err
+				return nil, err
 			}
 			params.InReplyToStatusID = sentTweet.ID
+			if i == 0 {
+				res = sentTweet
+			}
 		}
+		return res, nil
 	}
 }
 
@@ -253,7 +262,28 @@ func extractTweetFromDM(dm *twitter.DirectMessage) (*twitter.Tweet, error) {
 	return nil, errors.New("no tweet found in dm")
 }
 
-func handleDM(dm *twitter.DirectMessage, ch chan error) {
+func sendDM(text string, userID int64) (*twitter.DirectMessage, error) {
+	log.Printf("sending a dm to userID %d: %s\n", userID, text)
+	dm, resp, err := twitterAPIClient.DirectMessages.New(&twitter.DirectMessageNewParams{
+		UserID: userID,
+		Text:   text,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("new dm error: %s", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("new dm response status code : %d", resp.StatusCode)
+	}
+	return dm, nil
+}
+
+func handleDM(dm *twitter.DirectMessage, ch chan<- error) {
+	if dm.RecipientScreenName != twitterUsername {
+		// don't react these events
+		return
+	}
 	logMessageStruct(dm, "DM")
 
 	if tweet, err := extractTweetFromDM(dm); err != nil {
@@ -263,25 +293,30 @@ func handleDM(dm *twitter.DirectMessage, ch chan error) {
 			if DEBUG {
 				log.Println("dm'ing back:", responseText)
 			} else {
-				_, resp, err := twitterAPIClient.DirectMessages.New(&twitter.DirectMessageNewParams{
-					UserID: dm.SenderID,
-					Text:   responseText,
-				})
+				_, err := sendDM(responseText, dm.SenderID)
 				if err != nil {
-					ch <- fmt.Errorf("new dm error: %s", err)
+					ch <- err
 					return
-				}
-				resp.Body.Close()
-
-				if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-					ch <- fmt.Errorf("new dm response status code : %d", resp.StatusCode)
 				}
 			}
 		} else {
 			log.Println("DM'd self with invalid message", dm.Text)
 		}
 	} else {
-		handleTweet(tweet, ch)
+		if tweet, err := handleTweet(tweet, ch); err != nil {
+			ch <- fmt.Errorf("error handling tweet from dm: %s", err)
+			_, err := sendDM(transformTwitterText("An error occurred. Please try again"), dm.SenderID)
+			if err != nil {
+				ch <- err
+				return
+			}
+		} else {
+			_, err := sendDM(fmt.Sprintf("https://twitter.com/%s/status/%s", twitterUsername, tweet.IDStr), dm.SenderID)
+			if err != nil {
+				ch <- err
+				return
+			}
+		}
 	}
 }
 

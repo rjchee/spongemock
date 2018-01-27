@@ -33,7 +33,7 @@ type EnvVariable struct {
 type WorkerPlugin interface {
 	Name() string
 	EnvVariables() []EnvVariable
-	Start(chan error)
+	Start(chan<- error)
 }
 
 func init() {

@@ -56,7 +56,7 @@ func handleOfflineTweets(ch chan<- error) {
 		}
 		if lastTweetID != 0 && lastTweetID != mention.ID {
 			// mention hasn't been responded to
-			handleTweet(&mention, ch)
+			handleTweet(&mention, ch, true)
 		}
 	}
 	// close the user timeline stream if necessary

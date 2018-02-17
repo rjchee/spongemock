@@ -85,7 +85,7 @@ func (p twitterPlugin) Start(ch chan<- error) {
 
 	demux := twitter.NewSwitchDemux()
 	demux.Tweet = func(tweet *twitter.Tweet) {
-		handleTweet(tweet, ch)
+		handleTweet(tweet, ch, true)
 	}
 	demux.DM = func(dm *twitter.DirectMessage) {
 		handleDM(dm, ch)
@@ -149,7 +149,7 @@ func extractText(tweet *twitter.Tweet) string {
 	return text
 }
 
-func handleTweet(tweet *twitter.Tweet, ch chan<- error) (*twitter.Tweet, error) {
+func handleTweet(tweet *twitter.Tweet, ch chan<- error, followQuoteRetweet bool) (*twitter.Tweet, error) {
 	switch {
 	case tweet.User.ScreenName == twitterUsername:
 		return nil, errors.New("cannot mock my own tweet")
@@ -167,8 +167,8 @@ func handleTweet(tweet *twitter.Tweet, ch chan<- error) (*twitter.Tweet, error) 
 		if strings.HasPrefix(text, "@"+twitterUsername+" ") {
 			text = text[len(twitterUsername)+2:]
 		}
-		if tweet.QuotedStatus != nil {
-			// quote retweets should mock the retweeted person
+		if followQuoteRetweet && tweet.QuotedStatus != nil {
+			// quote retweets should mock the retweeted person if followQuoteRetweet is true
 			text = extractText(tweet.QuotedStatus)
 			mentions = append(mentions, "@"+tweet.QuotedStatus.User.ScreenName)
 		}
@@ -303,7 +303,7 @@ func handleDM(dm *twitter.DirectMessage, ch chan<- error) {
 			log.Println("DM'd self with invalid message", dm.Text)
 		}
 	} else {
-		if tweet, err := handleTweet(tweet, ch); err != nil {
+		if tweet, err := handleTweet(tweet, ch, false); err != nil {
 			ch <- fmt.Errorf("error handling tweet from dm: %s", err)
 			_, err := sendDM(transformTwitterText("An error occurred. Please try again"), dm.SenderID)
 			if err != nil {

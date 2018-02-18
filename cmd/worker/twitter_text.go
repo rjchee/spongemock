@@ -14,7 +14,7 @@ const (
 )
 
 var (
-	twitterTextRegex = regexp.MustCompile("@\\w{1,15}|\\s+|.?")
+	twitterTextRegex = regexp.MustCompile("@\\w{1,15}|https://t.co/\\w+|\\s+|.?")
 )
 
 func transformTwitterText(t string) string {
@@ -28,7 +28,7 @@ func transformTwitterText(t string) string {
 	idx := rand.Intn(2)
 	groupSize := rand.Intn(2) + 1
 	for _, ch := range letters {
-		// ignore twitter usernames
+		// ignore twitter usernames and URLs
 		if len([]rune(ch)) == 1 && strings.TrimSpace(ch) != "" {
 			ch = trFuncs[idx](ch)
 			groupSize--

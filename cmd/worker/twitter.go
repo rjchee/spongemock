@@ -280,11 +280,11 @@ func sendDM(text string, userID int64) (*twitter.DirectMessage, error) {
 }
 
 func handleDM(dm *twitter.DirectMessage, ch chan<- error) {
+	logMessageStruct(dm, "DM")
 	if dm.RecipientScreenName != twitterUsername {
 		// don't react these events
 		return
 	}
-	logMessageStruct(dm, "DM")
 
 	if tweet, err := extractTweetFromDM(dm); err != nil {
 		if dm.SenderScreenName != twitterUsername {
